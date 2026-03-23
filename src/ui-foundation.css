@@ -1,0 +1,613 @@
+/*
+ * V1.1统一样式基线：设计Token与语义布局类合并维护。
+ * 对外只暴露这一份CSS基础文件，避免变量层与语义层分散导致理解与维护成本上升。
+ * 应用壳层、列表单卡版心、工作台页签条等结构说明以 V1.1规范文档为准。
+ */
+:root {
+    /* =========================
+     * Color - Background
+     * ========================= */
+    --bg-page: #F5F7FA;
+    --bg-container: #FFFFFF;
+    --bg-subtle: #FAFBFC;
+    --bg-hover: #F2F4F7;
+    --bg-active: #EEF2FF;
+  
+    /* =========================
+     * Color - Border
+     * ========================= */
+    --border-default: #E5E7EB;
+    --border-subtle: #EEF0F3;
+    --border-strong: #D0D5DD;
+    --border-focus: #60A5FA;
+    --border-danger: #FCA5A5;
+  
+    /* =========================
+     * Color - Text
+     * ========================= */
+    --text-primary: #111827;
+    --text-secondary: #344054;
+    --text-muted: #667085;
+    --text-disabled: #98A2B3;
+    --text-placeholder: #9CA3AF;
+  
+    /* =========================
+     * Color - Brand / Semantic
+     * ========================= */
+    --primary: #3B82F6;
+    --primary-hover: #2563EB;
+    --primary-active: #1D4ED8;
+    --primary-subtle: #DBEAFE;
+  
+    --success: #16A34A;
+    --success-subtle: #DCFCE7;
+  
+    --warning: #D97706;
+    --warning-subtle: #FEF3C7;
+  
+    --danger: #DC2626;
+    --danger-subtle: #FEE2E2;
+  
+    --info: #0284C7;
+    --info-subtle: #E0F2FE;
+  
+    --link: #2563EB;
+    --link-hover: #1D4ED8;
+    --link-visited: #1E40AF;
+  
+    /* =========================
+     * Tag Colors
+     * ========================= */
+    --tag-draft-text: #475467;
+    --tag-draft-bg: #F2F4F7;
+    --tag-draft-border: #E4E7EC;
+  
+    --tag-pending-text: #B54708;
+    --tag-pending-bg: #FFFAEB;
+    --tag-pending-border: #FEDF89;
+  
+    --tag-processing-text: #1D4ED8;
+    --tag-processing-bg: #DBEAFE;
+    --tag-processing-border: #93C5FD;
+  
+    --tag-success-text: #027A48;
+    --tag-success-bg: #ECFDF3;
+    --tag-success-border: #A6F4C5;
+  
+    --tag-closed-text: #475467;
+    --tag-closed-bg: #F2F4F7;
+    --tag-closed-border: #D0D5DD;
+  
+    --tag-cancelled-text: #667085;
+    --tag-cancelled-bg: #F8F9FC;
+    --tag-cancelled-border: #EAECF0;
+  
+    --tag-error-text: #B42318;
+    --tag-error-bg: #FEF3F2;
+    --tag-error-border: #FECDCA;
+  
+    /* =========================
+     * Typography
+     * ========================= */
+    --font-size-page-title: 20px;
+    --font-size-section-title: 16px;
+    --font-size-body-lg: 14px;
+    --font-size-body: 13px;
+    --font-size-small: 12px;
+    --font-size-mini: 11px;
+  
+    --font-weight-page-title: 600;
+    --font-weight-section-title: 600;
+    --font-weight-body-strong: 500;
+    --font-weight-body: 400;
+    --font-weight-tag: 500;
+  
+    --line-height-tight: 1.25;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.6;
+    --line-height-table: 1.4;
+  
+    /* =========================
+     * Spacing
+     * ========================= */
+    --space-2: 2px;
+    --space-4: 4px;
+    --space-6: 6px;
+    --space-8: 8px;
+    --space-10: 10px;
+    --space-12: 12px;
+    --space-16: 16px;
+    --space-20: 20px;
+    --space-24: 24px;
+    --space-32: 32px;
+  
+    /* =========================
+     * Radius
+     * ========================= */
+    --radius-xs: 4px;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 12px;
+  
+    /* =========================
+     * Shadow
+     * ========================= */
+    --shadow-none: none;
+    --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+    --shadow-sm: 0 2px 8px rgba(16, 24, 40, 0.06);
+    --shadow-md: 0 8px 24px rgba(16, 24, 40, 0.08);
+  
+    /* =========================
+     * Layout
+     * ========================= */
+    --layout-sidebar-width: 220px;
+    --layout-sidebar-collapsed-width: 72px;
+    --layout-header-height: 56px;
+    --layout-content-padding-x: 24px;
+    --layout-content-padding-y: 24px;
+  
+    --page-block-gap: 16px;
+    --page-section-gap: 20px;
+    --page-title-gap: 16px;
+    --filter-section-gap: 16px;
+    --toolbar-gap: 12px;
+    --sticky-footer-height: 56px;
+  
+    /* =========================
+     * Container Padding
+     * ========================= */
+    --padding-page-x: 24px;
+    --padding-page-y: 24px;
+    --padding-section: 16px;
+    --padding-section-tight: 12px;
+    --padding-modal: 20px;
+    --padding-drawer: 20px;
+  
+    /* =========================
+     * Button
+     * ========================= */
+    --button-height-sm: 28px;
+    --button-height-md: 32px;
+    --button-height-lg: 36px;
+    --button-padding-x-sm: 10px;
+    --button-padding-x-md: 12px;
+    --button-padding-x-lg: 16px;
+    --button-font-size: 13px;
+    --button-font-weight: 400;
+  
+    /* =========================
+     * Input
+     * ========================= */
+    --input-height-sm: 28px;
+    --input-height-md: 32px;
+    --input-height-lg: 36px;
+    --input-padding-x: 12px;
+    --input-font-size: 13px;
+    --field-label-gap: 6px;
+  
+    /* =========================
+     * Table
+     * ========================= */
+    --table-header-height: 40px;
+    --table-row-height-compact: 36px;
+    --table-row-height-default: 40px;
+    --table-cell-padding-x: 12px;
+    --table-cell-padding-y: 8px;
+    --table-font-size: 13px;
+    --table-header-font-size: 13px;
+    --table-header-font-weight: 500;
+  
+    /* =========================
+     * Tag
+     * ========================= */
+    --tag-height: 22px;
+    --tag-padding-x: 8px;
+    --tag-font-size: 12px;
+    --tag-radius: 999px;
+  
+    /* =========================
+     * Tabs
+     * ========================= */
+    --tabs-height: 40px;
+    --tabs-font-size: 14px;
+    --tabs-font-weight: 400;
+    --tabs-gap: 18px;
+
+    /* =========================
+     * Pagination / Icon
+     * ========================= */
+    --pagination-gap: 12px;
+    --icon-size-sm: 16px;
+    --icon-size-md: 18px;
+    --icon-stroke-width: 1.8;
+  
+    /* =========================
+     * Description
+     * ========================= */
+    --desc-item-gap-x: 24px;
+    --desc-item-gap-y: 12px;
+    --desc-label-font-size: 12px;
+    --desc-value-font-size: 13px;
+  
+    /* =========================
+     * Drawer / Modal
+     * ========================= */
+    --drawer-width-sm: 480px;
+    --drawer-width-md: 640px;
+    --drawer-width-lg: 800px;
+  
+    --modal-width-sm: 420px;
+    --modal-width-md: 560px;
+    --modal-width-lg: 720px;
+}
+
+/*
+ * V1.1语义布局类：与《视觉与Token规则V1.1》一致。
+ * 根目录prototype-app直接引用本文件，保持命名与含义一致。
+ * 工作台页签条、单卡版心等壳层结构以 V1.1规范文档为准；类名可渐进增加，不必逐像素复刻。
+ */
+
+.page-shell {
+    min-height: 100vh;
+    background: var(--bg-page);
+    color: var(--text-primary);
+}
+
+.page-content {
+    padding: var(--padding-page-y) var(--padding-page-x);
+}
+
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-12);
+    margin-bottom: var(--page-title-gap);
+}
+
+.page-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-12);
+}
+
+.page-title {
+    font-size: var(--font-size-page-title);
+    font-weight: var(--font-weight-page-title);
+    line-height: var(--line-height-tight);
+    color: var(--text-primary);
+}
+
+.page-section {
+    background: var(--bg-container);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: var(--padding-section);
+}
+
+.page-section-tight {
+    background: var(--bg-container);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: var(--padding-section-tight);
+}
+
+.page-section-title {
+    font-size: var(--font-size-section-title);
+    font-weight: var(--font-weight-section-title);
+    line-height: var(--line-height-tight);
+    color: var(--text-primary);
+    margin-bottom: var(--space-12);
+}
+
+.filter-bar {
+    display: grid;
+    gap: var(--space-12);
+}
+
+.table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--toolbar-gap);
+    margin: 0;
+}
+
+.sticky-footer-bar {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-8);
+    height: var(--sticky-footer-height);
+    padding: 0 var(--padding-page-x);
+    background: var(--bg-container);
+    border-top: 1px solid var(--border-default);
+}
+
+.demo-toolbar {
+    position: fixed;
+    right: var(--padding-page-x);
+    bottom: var(--padding-page-y);
+    z-index: 30;
+    display: flex;
+    width: min(360px, calc(100vw - 32px));
+    flex-direction: column;
+    gap: var(--space-8);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: var(--shadow-xs);
+    backdrop-filter: blur(10px);
+    padding: var(--space-10) var(--space-12);
+    opacity: 0.62;
+    transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.demo-toolbar:hover,
+.demo-toolbar:focus-within {
+    opacity: 1;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.demo-toolbar-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-8);
+}
+
+.demo-toolbar-title {
+    color: var(--text-secondary);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-body-strong);
+}
+
+.demo-toolbar-desc {
+    color: var(--text-muted);
+    font-size: var(--font-size-mini);
+}
+
+.demo-scenario-toggle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-6);
+}
+
+.demo-scenario-label {
+    width: 100%;
+    color: var(--text-muted);
+    font-size: var(--font-size-mini);
+}
+
+.demo-scenario-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    color: var(--text-muted);
+    padding: 4px 8px;
+    font-size: var(--font-size-mini);
+    line-height: 1.2;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.demo-scenario-chip:hover,
+.demo-scenario-chip:focus-visible {
+    outline: none;
+    border-color: var(--border-default);
+    color: var(--text-secondary);
+}
+
+.demo-scenario-chip.is-active {
+    border-color: var(--border-focus);
+    background: var(--primary-subtle);
+    color: var(--primary);
+}
+
+.workspace-tab-strip {
+    display: flex;
+    align-items: center;
+    min-height: var(--tabs-height);
+    padding: 0 var(--padding-page-x);
+    background: var(--bg-container);
+    border-bottom: 1px solid var(--border-default);
+    gap: var(--tabs-gap);
+    overflow-x: auto;
+}
+
+.workspace-tab-item {
+    display: inline-flex;
+    align-items: center;
+    height: calc(var(--tabs-height) - 1px);
+    gap: var(--space-6);
+    font-size: var(--tabs-font-size);
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    transition: color 0.2s ease;
+}
+
+.workspace-tab-trigger {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+    font-weight: var(--tabs-font-weight);
+}
+
+.workspace-tab-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-6);
+}
+
+.workspace-tab-icon {
+    width: var(--icon-size-sm);
+    height: var(--icon-size-sm);
+}
+
+.workspace-tab-item.is-active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.workspace-tab-close {
+    border: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: var(--text-muted);
+    padding: 0;
+    cursor: pointer;
+}
+
+.workspace-tab-close:hover,
+.workspace-tab-close:focus-visible {
+    color: var(--text-primary);
+}
+
+.detail-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-16);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--bg-container);
+    padding: var(--padding-section);
+}
+
+.detail-hero-main {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--space-12);
+}
+
+.detail-hero-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-12);
+}
+
+.detail-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-16);
+    color: var(--text-muted);
+    font-size: var(--font-size-small);
+}
+
+.detail-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-8);
+}
+
+.description-grid {
+    display: grid;
+    gap: var(--desc-item-gap-y) var(--desc-item-gap-x);
+}
+
+.description-item {
+    min-width: 0;
+}
+
+.description-label {
+    margin-bottom: var(--space-6);
+    color: var(--text-muted);
+    font-size: var(--desc-label-font-size);
+}
+
+.description-value {
+    color: var(--text-primary);
+    font-size: var(--desc-value-font-size);
+    line-height: var(--line-height-normal);
+    word-break: break-word;
+}
+
+.linear-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--tabs-gap);
+    border-bottom: 1px solid var(--border-default);
+}
+
+.linear-tabs.is-dividerless {
+    border-bottom: 0;
+}
+
+.linear-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    border: 0;
+    background: transparent;
+    padding: 0 0 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: var(--font-size-body);
+}
+
+.linear-tab:focus-visible {
+    outline: none;
+    color: var(--primary);
+}
+
+.linear-tab.is-active {
+    color: var(--primary);
+    font-weight: var(--font-weight-body-strong);
+}
+
+.linear-tab.is-active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--primary);
+}
+
+.linear-tab.is-active.is-active-no-indicator::after {
+    display: none;
+}
+
+.list-page-main-card {
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    background: var(--bg-container);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+    .page-header,
+    .detail-hero {
+        flex-direction: column;
+    }
+
+    .page-header-actions,
+    .detail-hero-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .demo-toolbar {
+        right: var(--space-12);
+        bottom: var(--space-12);
+        width: min(320px, calc(100vw - 24px));
+    }
+}

@@ -1,4 +1,4 @@
-@import "../../01-页面设计基线/ui-foundation.css";
+@import "./ui-foundation.css";
 
 @tailwind base;
 @tailwind components;
