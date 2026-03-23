@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowSyntheticDefaultImports": true,
+    "noEmit": true,
+    "types": ["node"],
+    "strict": true
+  },
+  "include": ["vite.config.ts", "tailwind.config.ts", "../01-页面设计基线/tailwind-preset.ts"]
+}

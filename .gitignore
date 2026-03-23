@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+
+# Build
+dist
+
+# Logs & cache
+*.log
+npm-debug.log*
+.DS_Store
+
+# TypeScript incremental
+*.tsbuildinfo
+
+# Local env (if you add later)
+.env
+.env.*.local
