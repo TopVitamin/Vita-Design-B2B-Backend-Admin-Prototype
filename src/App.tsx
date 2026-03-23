@@ -103,9 +103,31 @@ type FloatingAlertNotice = FloatingAlertInput & {
 type PurchaseLineItemRow = (typeof lineItems)[number] & {
   rowId: string;
 };
+type ThemeKey =
+  | "classic-cloud-blue"
+  | "crimson-red"
+  | "nebula-purple"
+  | "wechat-growth-green"
+  | "aliyun-amber";
+type ThemeOption = {
+  key: ThemeKey;
+  label: string;
+  description: string;
+  colors: {
+    primary: string;
+    hover: string;
+    active: string;
+    subtle: string;
+    page: string;
+    panel: string;
+    border: string;
+    hoverSurface: string;
+  };
+};
 
 const demoOperator = "当前用户";
 const demoTimestamp = "2026-03-22 16:40:00";
+const themeStorageKey = "prototype-app-theme";
 
 function getSwitchLabel(field: RichField, checked: boolean) {
   if (checked) {
@@ -204,6 +226,97 @@ const detailTabs = [
   { label: "无权限", value: "no-auth" },
 ] as const;
 
+const themeOptions: ThemeOption[] = [
+  {
+    key: "classic-cloud-blue",
+    label: "经典云蓝",
+    description: "稳重、通用、低风险，延续当前后台模板的默认基线。",
+    colors: {
+      primary: "#3B82F6",
+      hover: "#2563EB",
+      active: "#1D4ED8",
+      subtle: "#DBEAFE",
+      page: "#F5F7FA",
+      panel: "#FAFBFC",
+      border: "#E5E7EB",
+      hoverSurface: "#F2F4F7",
+    },
+  },
+  {
+    key: "crimson-red",
+    label: "绛云赤红",
+    description: "更有业务推动感，适合强调执行力和重点决策场景。",
+    colors: {
+      primary: "#D14343",
+      hover: "#B42318",
+      active: "#912018",
+      subtle: "#FEE4E2",
+      page: "#F5F7FA",
+      panel: "#FAFBFC",
+      border: "#E5E7EB",
+      hoverSurface: "#F2F4F7",
+    },
+  },
+  {
+    key: "nebula-purple",
+    label: "星幕紫",
+    description: "更偏平台化和策略感，适合需要品牌识别的中后台工作台。",
+    colors: {
+      primary: "#7C3AED",
+      hover: "#6D28D9",
+      active: "#5B21B6",
+      subtle: "#EDE9FE",
+      page: "#F5F7FA",
+      panel: "#FAFBFC",
+      border: "#E5E7EB",
+      hoverSurface: "#F2F4F7",
+    },
+  },
+  {
+    key: "wechat-growth-green",
+    label: "企微增长绿",
+    description: "克制的企业服务绿色，更偏组织连接与增长导向。",
+    colors: {
+      primary: "#18B368",
+      hover: "#0E9F5B",
+      active: "#0B7A45",
+      subtle: "#DDF7E8",
+      page: "#F5F7FA",
+      panel: "#FAFBFC",
+      border: "#E5E7EB",
+      hoverSurface: "#F2F4F7",
+    },
+  },
+  {
+    key: "aliyun-amber",
+    label: "阿里云琥珀橙",
+    description: "业务驱动更强，适合强调执行效率与业务识别度。",
+    colors: {
+      primary: "#F59E0B",
+      hover: "#D97706",
+      active: "#B45309",
+      subtle: "#FEF3C7",
+      page: "#F5F7FA",
+      panel: "#FAFBFC",
+      border: "#E5E7EB",
+      hoverSurface: "#F2F4F7",
+    },
+  },
+];
+
+function isThemeKey(value: string): value is ThemeKey {
+  return themeOptions.some((theme) => theme.key === value);
+}
+
+function resolveInitialTheme(): ThemeKey {
+  if (typeof window === "undefined") {
+    return "classic-cloud-blue";
+  }
+
+  const storedTheme = window.localStorage.getItem(themeStorageKey);
+  return storedTheme && isThemeKey(storedTheme) ? storedTheme : "classic-cloud-blue";
+}
+
 function getReadOnlyFieldValue(field: RichField) {
   if (field.readOnlyValue) {
     return field.readOnlyValue;
@@ -254,10 +367,11 @@ function renderEditableField(field: RichField) {
   }
 
   if (field.kind === "checkbox") {
+    const checkboxLabel = field.controlLabel ?? "已勾选";
     return (
-      <label className="choice-control">
+      <label className="choice-control" title={checkboxLabel}>
         <input type="checkbox" defaultChecked={field.checked} />
-        <span>{field.controlLabel ?? "已勾选"}</span>
+        <span>{checkboxLabel}</span>
       </label>
     );
   }
@@ -279,6 +393,8 @@ function FieldBlock({ field, readOnly = false }: { field: RichField; readOnly?: 
 }
 
 export default function App() {
+  const [activeTheme, setActiveTheme] = useState<ThemeKey>(resolveInitialTheme);
+  const [themeModalOpen, setThemeModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<WorkspaceTabKey>("home");
   const [openTabs, setOpenTabs] = useState<WorkspaceTabKey[]>(["home"]);
   const [listScenario, setListScenario] = useState<ListScenario>("normal");
@@ -321,6 +437,11 @@ export default function App() {
   const [customerExportFormat, setCustomerExportFormat] = useState("xlsx");
   const [customerNotice, setCustomerNotice] = useState<CustomerNotice>(null);
   const [floatingAlert, setFloatingAlert] = useState<FloatingAlertNotice | null>(null);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = activeTheme;
+    window.localStorage.setItem(themeStorageKey, activeTheme);
+  }, [activeTheme]);
 
   useEffect(() => {
     if (!importOpen || importStage !== "loading") {
@@ -401,6 +522,36 @@ export default function App() {
     setFloatingAlert({
       id: Date.now(),
       ...notice,
+    });
+  }
+
+  function applyTheme(themeKey: ThemeKey) {
+    const nextTheme = themeOptions.find((theme) => theme.key === themeKey);
+    if (!nextTheme) {
+      return;
+    }
+
+    setActiveTheme(themeKey);
+    showFloatingAlert(
+      themeKey === activeTheme
+        ? {
+            tone: "info",
+            title: `当前已是${nextTheme.label}`,
+            description: "你可以继续预览其它主题，切换会立即作用到页签、背景和按钮状态。",
+          }
+        : {
+            tone: "success",
+            title: `已切换为${nextTheme.label}`,
+            description: "新的主题已应用到按钮、页签、页面底色和悬浮高亮层级。",
+          },
+    );
+  }
+
+  function showPendingAlert(label: string) {
+    showFloatingAlert({
+      tone: "error",
+      title: `${label}暂未实现`,
+      description: "当前原型先保留入口占位，后续再补真实页面和交互逻辑。",
     });
   }
 
@@ -869,6 +1020,10 @@ export default function App() {
           openWorkspaceTab("design-system");
         }
       }}
+      onProfileAction={() => showPendingAlert("个人中心")}
+      onThemeSwitchAction={() => setThemeModalOpen(true)}
+      onLanguageAction={() => showPendingAlert("语言切换")}
+      onLogoutAction={() => showPendingAlert("退出登录")}
     >
       {activeTab === "home" && (
         <HomePage
@@ -1128,6 +1283,78 @@ export default function App() {
           });
         }}
       />
+      <Modal open={themeModalOpen} title="主题色切换" widthClassName="max-w-[min(100%,760px)] w-full" onClose={() => setThemeModalOpen(false)}>
+        <div className="space-y-3">
+          <div className="rounded-md border border-border bg-bg-subtle px-4 py-2.5 text-small text-text-secondary">
+            切换后会同时更新主按钮、激活态页签、页面底色、浅层悬浮底色和边框层级，并自动记住本次选择。
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+          {themeOptions.map((theme) => {
+            const active = theme.key === activeTheme;
+            return (
+              <div
+                key={theme.key}
+                role="button"
+                tabIndex={0}
+                onClick={() => applyTheme(theme.key)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    applyTheme(theme.key);
+                  }
+                }}
+                className={`cursor-pointer rounded-md border p-3.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-subtle ${
+                  active ? "border-primary bg-white shadow-sm" : "border-border bg-white hover:border-primary-subtle hover:shadow-xs"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-body font-section-title text-text-primary">{theme.label}</div>
+                    <div className="mt-1 text-small text-text-muted">{theme.description}</div>
+                  </div>
+                  {active ? <Badge tone="processing" className="shrink-0">当前使用</Badge> : null}
+                </div>
+
+                <div className="mt-3">
+                  <div className="mb-2 text-mini text-text-muted">品牌交互色</div>
+                  <div className="grid grid-cols-4 gap-2">
+                  <ThemeColorSwatch label="主色" color={theme.colors.primary} />
+                  <ThemeColorSwatch label="Hover" color={theme.colors.hover} />
+                  <ThemeColorSwatch label="Subtle" color={theme.colors.subtle} />
+                  <ThemeColorSwatch label="Active" color={theme.colors.active} />
+                </div>
+                </div>
+
+                <div className="mt-3">
+                  <div className="mb-2 text-mini text-text-muted">页面层级色</div>
+                  <div className="grid grid-cols-4 gap-2">
+                    <ThemeColorSwatch label="Page" color={theme.colors.page} />
+                    <ThemeColorSwatch label="Panel" color={theme.colors.panel} />
+                    <ThemeColorSwatch label="Hover" color={theme.colors.hoverSurface} />
+                    <ThemeColorSwatch label="Border" color={theme.colors.border} borderless />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <Button
+                    className="w-full"
+                    size="sm"
+                    variant={active ? "secondary" : "primary"}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      applyTheme(theme.key);
+                    }}
+                  >
+                    {active ? "当前使用中" : "应用这套主题"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          </div>
+        </div>
+      </Modal>
       <SupplierLifecycleModal
         open={supplierLifecycleOpen}
         record={lifecycleSupplier}
@@ -1137,6 +1364,26 @@ export default function App() {
       />
       <FloatingAlert notice={floatingAlert} />
     </AppShell>
+  );
+}
+
+function ThemeColorSwatch({
+  label,
+  color,
+  borderless = false,
+}: {
+  label: string;
+  color: string;
+  borderless?: boolean;
+}) {
+  return (
+    <div>
+      <div
+        className={`h-10 rounded-sm ${borderless ? "" : "border border-border"}`}
+        style={{ background: color }}
+      />
+      <div className="mt-1.5 text-mini text-text-muted">{label}</div>
+    </div>
   );
 }
 

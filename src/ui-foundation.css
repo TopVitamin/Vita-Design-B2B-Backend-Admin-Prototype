@@ -204,7 +204,7 @@
     --tag-height: 22px;
     --tag-padding-x: 8px;
     --tag-font-size: 12px;
-    --tag-radius: 999px;
+    --tag-radius: 6px;
   
     /* =========================
      * Tabs
@@ -240,6 +240,81 @@
     --modal-width-sm: 420px;
     --modal-width-md: 560px;
     --modal-width-lg: 720px;
+}
+
+[data-theme="classic-cloud-blue"] {
+    --primary: #3B82F6;
+    --primary-hover: #2563EB;
+    --primary-active: #1D4ED8;
+    --primary-subtle: #DBEAFE;
+    --border-focus: #60A5FA;
+    --link: #2563EB;
+    --link-hover: #1D4ED8;
+    --link-visited: #1E40AF;
+    --bg-active: #EEF2FF;
+    --tag-processing-text: #1D4ED8;
+    --tag-processing-bg: #DBEAFE;
+    --tag-processing-border: #93C5FD;
+}
+
+[data-theme="crimson-red"] {
+    --primary: #D14343;
+    --primary-hover: #B42318;
+    --primary-active: #912018;
+    --primary-subtle: #FEE4E2;
+    --border-focus: #E26D6D;
+    --link: #B42318;
+    --link-hover: #912018;
+    --link-visited: #7A271A;
+    --bg-active: #FDECEC;
+    --tag-processing-text: #B42318;
+    --tag-processing-bg: #FEE4E2;
+    --tag-processing-border: #F2B8B5;
+}
+
+[data-theme="nebula-purple"] {
+    --primary: #7C3AED;
+    --primary-hover: #6D28D9;
+    --primary-active: #5B21B6;
+    --primary-subtle: #EDE9FE;
+    --border-focus: #9B74EF;
+    --link: #6D28D9;
+    --link-hover: #5B21B6;
+    --link-visited: #4C1D95;
+    --bg-active: #F0EBFF;
+    --tag-processing-text: #6D28D9;
+    --tag-processing-bg: #EDE9FE;
+    --tag-processing-border: #CDBCFB;
+}
+
+[data-theme="wechat-growth-green"] {
+    --primary: #18B368;
+    --primary-hover: #0E9F5B;
+    --primary-active: #0B7A45;
+    --primary-subtle: #DDF7E8;
+    --border-focus: #59CC94;
+    --link: #0E9F5B;
+    --link-hover: #0B7A45;
+    --link-visited: #08663A;
+    --bg-active: #ECFBF3;
+    --tag-processing-text: #0B7A45;
+    --tag-processing-bg: #DDF7E8;
+    --tag-processing-border: #8EDDB4;
+}
+
+[data-theme="aliyun-amber"] {
+    --primary: #F59E0B;
+    --primary-hover: #D97706;
+    --primary-active: #B45309;
+    --primary-subtle: #FEF3C7;
+    --border-focus: #F7B955;
+    --link: #D97706;
+    --link-hover: #B45309;
+    --link-visited: #92400E;
+    --bg-active: #FFF7DA;
+    --tag-processing-text: #B45309;
+    --tag-processing-bg: #FEF3C7;
+    --tag-processing-border: #F9CB74;
 }
 
 /*
@@ -431,8 +506,7 @@
     padding: 0 var(--padding-page-x);
     background: var(--bg-container);
     border-bottom: 1px solid var(--border-default);
-    gap: var(--tabs-gap);
-    overflow-x: auto;
+    gap: var(--space-12);
 }
 
 .workspace-tab-item {

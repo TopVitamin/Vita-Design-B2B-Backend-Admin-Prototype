@@ -27,6 +27,10 @@
     font: inherit;
   }
 
+  input[type="checkbox"] {
+    accent-color: var(--primary);
+  }
+
   table {
     width: 100%;
     border-collapse: collapse;
@@ -74,11 +78,15 @@
   }
 
   .choice-control {
-    @apply flex min-h-[var(--input-height-md)] items-center gap-control rounded-sm border border-border bg-white px-input-x text-body text-text-primary;
+    @apply flex min-h-[var(--input-height-md)] w-full min-w-0 items-center gap-control rounded-sm border border-border bg-white px-input-x text-body text-text-primary;
   }
 
   .choice-control input {
-    @apply h-4 w-4 rounded border-border text-primary focus:ring-primary-subtle;
+    @apply h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-primary-subtle;
+  }
+
+  .choice-control span {
+    @apply min-w-0 flex-1 truncate whitespace-nowrap;
   }
 
   .switch-control {

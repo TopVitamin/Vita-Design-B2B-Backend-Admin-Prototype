@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowDownToLine,
@@ -8,17 +8,20 @@ import {
   ChevronRight,
   ClipboardList,
   Database,
+  Languages,
+  LogOut,
   House,
   PanelLeftClose,
   PanelLeftOpen,
+  Palette,
   ScrollText,
   ShoppingCart,
+  UserCircle2,
   Users,
   Warehouse,
   Workflow,
   X,
 } from "lucide-react";
-import { Button } from "./ui/button";
 
 type NavIconName =
   | "purchase"
@@ -145,6 +148,10 @@ export function AppShell({
   secondaryNavItems,
   activeSecondaryNavId,
   onSecondaryNavSelect,
+  onProfileAction,
+  onThemeSwitchAction,
+  onLanguageAction,
+  onLogoutAction,
   children,
 }: {
   tabs: Array<{ key: string; label: string; closable?: boolean; icon?: LucideIcon }>;
@@ -156,11 +163,32 @@ export function AppShell({
   secondaryNavItems?: Array<{ id: string; label: string; icon: LucideIcon }>;
   activeSecondaryNavId?: string;
   onSecondaryNavSelect?: (key: string) => void;
+  onProfileAction?: () => void;
+  onThemeSwitchAction?: () => void;
+  onLanguageAction?: () => void;
+  onLogoutAction?: () => void;
   children: ReactNode;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(defaultSectionExpanded);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(defaultGroupExpanded);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (!userMenuRef.current) {
+        return;
+      }
+
+      if (!userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
 
   function toggleSection(sectionId: string) {
     setExpandedSections((current) => ({ ...current, [sectionId]: !current[sectionId] }));
@@ -364,40 +392,101 @@ export function AppShell({
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="bg-white">
           <div className="workspace-tab-strip">
-            {tabs.map((tab) => {
-              const active = tab.key === currentTab;
-              const TabIcon = tab.icon;
-              return (
-                <div key={tab.key} className={`workspace-tab-item ${active ? "is-active" : ""}`}>
-                  <button
-                    type="button"
-                    className="workspace-tab-trigger border-0 bg-transparent p-0 text-inherit focus-visible:outline-none"
-                    onClick={() => onTabChange(tab.key)}
-                  >
-                    <span className="workspace-tab-label">
-                      {TabIcon ? <TabIcon aria-hidden="true" strokeWidth={1.8} className="workspace-tab-icon" /> : null}
-                      <span>{tab.label}</span>
-                    </span>
-                  </button>
-                  {tab.closable ? (
+            <div className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto pr-4">
+              {tabs.map((tab) => {
+                const active = tab.key === currentTab;
+                const TabIcon = tab.icon;
+                return (
+                  <div key={tab.key} className={`workspace-tab-item ${active ? "is-active" : ""}`}>
                     <button
                       type="button"
-                      className="workspace-tab-close focus-visible:outline-none"
-                      aria-label={`关闭${tab.label}`}
-                      onClick={() => onTabClose(tab.key)}
+                      className="workspace-tab-trigger border-0 bg-transparent p-0 text-inherit focus-visible:outline-none"
+                      onClick={() => onTabChange(tab.key)}
                     >
-                      <X aria-hidden="true" strokeWidth={1.8} className="h-3.5 w-3.5" />
+                      <span className="workspace-tab-label">
+                        {TabIcon ? <TabIcon aria-hidden="true" strokeWidth={1.8} className="workspace-tab-icon" /> : null}
+                        <span>{tab.label}</span>
+                      </span>
                     </button>
-                  ) : null}
-                </div>
-              );
-            })}
-            <div className="ml-auto hidden items-center gap-actions py-1 md:flex">
-              <input
-                className="h-input-md w-64 rounded-sm border border-border px-input-x text-body outline-none ring-0 placeholder:text-text-placeholder"
-                placeholder="菜单搜索，快捷键 /"
-              />
-              <Button size="sm">帮助</Button>
+                    {tab.closable ? (
+                      <button
+                        type="button"
+                        className="workspace-tab-close focus-visible:outline-none"
+                        aria-label={`关闭${tab.label}`}
+                        onClick={() => onTabClose(tab.key)}
+                      >
+                        <X aria-hidden="true" strokeWidth={1.8} className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-actions py-1">
+              <div className="hidden items-center md:flex">
+                <input
+                  className="h-input-md w-64 rounded-sm border border-border px-input-x text-body outline-none ring-0 placeholder:text-text-placeholder"
+                  placeholder="菜单搜索，快捷键 /"
+                />
+              </div>
+
+              <div ref={userMenuRef} className="relative">
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                  onClick={() => setUserMenuOpen((current) => !current)}
+                  aria-label="打开用户菜单"
+                  className={`inline-flex h-8 w-8 min-w-8 shrink-0 items-center justify-center whitespace-nowrap rounded-sm text-mini font-section-title leading-none tracking-tight text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-subtle focus-visible:ring-offset-2 ${
+                    userMenuOpen ? "bg-primary-hover" : "bg-primary hover:bg-primary-hover"
+                  }`}
+                >
+                  VM
+                </button>
+
+                {userMenuOpen ? (
+                  <div
+                    role="menu"
+                    aria-label="用户菜单"
+                    className="absolute right-0 top-[calc(100%+8px)] z-30 w-56 rounded-md border border-border bg-white p-2 shadow-md"
+                  >
+                    <UserMenuItem
+                      icon={UserCircle2}
+                      label="个人中心"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        onProfileAction?.();
+                      }}
+                    />
+                    <UserMenuItem
+                      icon={Palette}
+                      label="主题色切换"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        onThemeSwitchAction?.();
+                      }}
+                    />
+                    <UserMenuItem
+                      icon={Languages}
+                      label="语言切换"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        onLanguageAction?.();
+                      }}
+                    />
+                    <UserMenuItem
+                      icon={LogOut}
+                      label="退出登录"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        onLogoutAction?.();
+                      }}
+                      danger
+                    />
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
         </header>
@@ -430,4 +519,30 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
 function SidebarIcon({ name, className }: { name: NavIconName; className?: string }) {
   const Icon = iconMap[name];
   return <Icon aria-hidden="true" strokeWidth={1.8} className={className} />;
+}
+
+function UserMenuItem({
+  icon: Icon,
+  label,
+  onClick,
+  danger = false,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-body transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-subtle ${
+        danger ? "text-danger hover:bg-danger-subtle" : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+      }`}
+    >
+      <Icon aria-hidden="true" strokeWidth={1.8} className="h-4 w-4" />
+      <span>{label}</span>
+    </button>
+  );
 }

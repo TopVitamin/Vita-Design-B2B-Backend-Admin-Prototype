@@ -30,7 +30,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex h-tag items-center rounded-full px-tag-x text-small font-tag",
+        "inline-flex h-tag items-center whitespace-nowrap rounded-[var(--tag-radius)] px-tag-x text-small font-tag",
         toneClassMap[tone],
         className,
       )}
