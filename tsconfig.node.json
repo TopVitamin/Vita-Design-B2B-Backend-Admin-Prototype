@@ -9,5 +9,5 @@
     "types": ["node"],
     "strict": true
   },
-  "include": ["vite.config.ts", "tailwind.config.ts", "../01-页面设计基线/tailwind-preset.ts"]
+  "include": ["vite.config.ts", "tailwind.config.ts", "tailwind-preset.ts"]
 }
