@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { ArrowDownToLine, Building2, ChevronDown, CircleAlert, ClipboardList, Clock3, House, Palette, Plus, Settings2, Users } from "lucide-react";
+import { ArrowDownToLine, Building2, ChevronDown, CircleAlert, ClipboardList, Clock3, House, Palette, Plus, ScrollText, Settings2, Users, Warehouse } from "lucide-react";
 import { AppShell } from "./components/app-shell";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
@@ -12,12 +11,15 @@ import {
   getDensityClassName,
   usePersistedColumnSettings,
 } from "./components/ui/column-settings";
+import { DemoToolbar } from "./components/ui/demo-toolbar";
 import { FloatingAlert, type FloatingAlertInput } from "./components/ui/floating-alert";
 import { IconActionButton } from "./components/ui/icon-action-button";
 import { Modal } from "./components/ui/modal";
 import { Select } from "./components/ui/select";
 import { Tabs } from "./components/ui/tabs";
 import { DesignSystemPage } from "./pages/design-system-page";
+import { InventoryFlowQueryPage } from "./pages/inventory-flow-query";
+import { InventoryQueryPage } from "./pages/inventory-query";
 import {
   approvalLogs,
   lineItems,
@@ -72,7 +74,9 @@ type WorkspaceTabKey =
   | "customer-list"
   | "customer-create"
   | "customer-edit"
-  | "customer-detail";
+  | "customer-detail"
+  | "inventory-query"
+  | "inventory-flow-query";
 type EditorMode = "create" | "edit";
 type ListScenario = "normal" | "loading" | "empty" | "no-result" | "no-auth" | "partial-success";
 type EditScenario = "normal" | "save-failed" | "submit-failed" | "conflict" | "read-only";
@@ -408,6 +412,8 @@ export default function App() {
       create: { key: "create", label: "新建采购订单", closable: true },
       edit: { key: "edit", label: "编辑采购订单", closable: true },
       detail: { key: "detail", label: "采购订单详情", closable: true },
+      "inventory-query": { key: "inventory-query", label: "即时库存查询", closable: true },
+      "inventory-flow-query": { key: "inventory-flow-query", label: "库存流水查询", closable: true },
       "supplier-list": { key: "supplier-list", label: "供应商主数据", closable: true },
       "supplier-create": { key: "supplier-create", label: "新建供应商", closable: true },
       "supplier-edit": { key: "supplier-edit", label: "编辑供应商", closable: true },
@@ -486,6 +492,14 @@ export default function App() {
   function openCustomerDetail(code: string) {
     setCustomerCurrentCode(code);
     openWorkspaceTab("customer-detail");
+  }
+
+  function openInventoryQuery() {
+    openWorkspaceTab("inventory-query");
+  }
+
+  function openInventoryFlowQuery() {
+    openWorkspaceTab("inventory-flow-query");
   }
 
   function generateSupplierCode(existingCode?: string) {
@@ -818,7 +832,11 @@ export default function App() {
         ? "supplier"
         : activeTab.startsWith("customer-")
           ? "customer"
-        : "purchase-order";
+          : activeTab === "inventory-query"
+            ? "inventory-query"
+          : activeTab === "inventory-flow-query"
+            ? "inventory-flow-query"
+          : "purchase-order";
 
   return (
     <AppShell
@@ -832,6 +850,12 @@ export default function App() {
       onNavItemSelect={(key) => {
         if (key === "purchase-order") {
           openWorkspaceTab("list");
+        }
+        if (key === "inventory-query") {
+          openInventoryQuery();
+        }
+        if (key === "inventory-flow-query") {
+          openInventoryFlowQuery();
         }
         if (key === "supplier") {
           openSupplierList();
@@ -850,6 +874,8 @@ export default function App() {
         <HomePage
           onOpenList={() => openWorkspaceTab("list")}
           onOpenCreate={() => openWorkspaceTab("create")}
+          onOpenInventoryQuery={openInventoryQuery}
+          onOpenInventoryFlowQuery={openInventoryFlowQuery}
           onOpenSupplierList={openSupplierList}
           onOpenCustomerList={openCustomerList}
           onOpenImport={() => {
@@ -859,6 +885,8 @@ export default function App() {
         />
       )}
       {activeTab === "design-system" && <DesignSystemPage />}
+      {activeTab === "inventory-query" && <InventoryQueryPage onShowAlert={showFloatingAlert} />}
+      {activeTab === "inventory-flow-query" && <InventoryFlowQueryPage onShowAlert={showFloatingAlert} />}
       {activeTab === "list" && (
         <ListPage
           scenario={listScenario}
@@ -1115,12 +1143,16 @@ export default function App() {
 function HomePage({
   onOpenList,
   onOpenCreate,
+  onOpenInventoryQuery,
+  onOpenInventoryFlowQuery,
   onOpenSupplierList,
   onOpenCustomerList,
   onOpenImport,
 }: {
   onOpenList: () => void;
   onOpenCreate: () => void;
+  onOpenInventoryQuery: () => void;
+  onOpenInventoryFlowQuery: () => void;
   onOpenSupplierList: () => void;
   onOpenCustomerList: () => void;
   onOpenImport: () => void;
@@ -1155,6 +1187,20 @@ function HomePage({
       onClick: onOpenCustomerList,
     },
     {
+      title: "即时库存查询",
+      description: "按货主、仓库、商品和品类组合查询即时库存，重点查看可用、预占和冻结数量。",
+      action: "打开查询",
+      icon: Warehouse,
+      onClick: onOpenInventoryQuery,
+    },
+    {
+      title: "库存流水查询",
+      description: "按操作时间、业务单号和动作类型查询库存变动流水，重点对比变动前后数量。",
+      action: "打开查询",
+      icon: ScrollText,
+      onClick: onOpenInventoryFlowQuery,
+    },
+    {
       title: "供应商主数据",
       description: "进入供应商列表，维护准入资料、审核状态、金蝶推送和合作开关。",
       action: "打开主数据",
@@ -1170,11 +1216,11 @@ function HomePage({
   ];
 
   const recentActions = [
-    { icon: Clock3, title: "最近访问", desc: "采购订单列表、采购订单详情、供应商主数据、客户主数据" },
+    { icon: Clock3, title: "最近访问", desc: "采购订单列表、即时库存查询、库存流水查询、供应商主数据、客户主数据" },
     {
       icon: CircleAlert,
       title: "样例范围",
-      desc: "采购订单、供应商主数据、客户主数据是3个常见案例，三者共用同一套规范与CSS基线。",
+      desc: "采购订单、即时库存查询、库存流水查询、供应商主数据、客户主数据是5个常见案例，五者共用同一套规范与CSS基线。",
     },
   ];
 
@@ -1182,10 +1228,10 @@ function HomePage({
     <div className="space-y-4">
       <PageHeader
         title="首页"
-        description="系统默认着陆页，可快速打开采购订单、供应商主数据、客户主数据这3个常见案例。"
+        description="系统默认着陆页，可快速打开采购订单、即时库存查询、库存流水查询、供应商主数据、客户主数据这5个常见案例。"
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
         {shortcuts.map((item) => {
           const Icon = item.icon;
           return (
@@ -1266,61 +1312,6 @@ function PageHeader({
         {description ? <div className="mt-2 text-small text-text-muted">{description}</div> : null}
       </div>
       {actions ? <div className="page-header-actions">{actions}</div> : null}
-    </div>
-  );
-}
-
-function DemoToolbar<T extends string>({
-  label,
-  items,
-  value,
-  onChange,
-}: {
-  label: string;
-  items: ReadonlyArray<{ label: string; value: T }>;
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  return createPortal(
-    <div className="demo-toolbar">
-      <div className="demo-toolbar-header">
-        <span className="demo-toolbar-title">样例调试面板</span>
-        <span className="demo-toolbar-desc">仅用于切换展示状态</span>
-      </div>
-      <ScenarioToggle label={label} items={items} value={value} onChange={onChange} />
-    </div>,
-    document.body,
-  );
-}
-
-function ScenarioToggle<T extends string>({
-  label,
-  items,
-  value,
-  onChange,
-}: {
-  label: string;
-  items: ReadonlyArray<{ label: string; value: T }>;
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="demo-scenario-toggle">
-      <span className="demo-scenario-label">{label}</span>
-      {items.map((item) => (
-        <button
-          key={item.value}
-          type="button"
-          onClick={() => onChange(item.value)}
-          className={`demo-scenario-chip ${item.value === value ? "is-active" : ""}`}
-        >
-          {item.label}
-        </button>
-      ))}
     </div>
   );
 }

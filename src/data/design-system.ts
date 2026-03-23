@@ -296,6 +296,16 @@ export const designSystemDataRules: DesignSystemRule[] = [
     token: "显示隐藏 / 顺序调整 / 固定列 / 用户自动记忆",
     description: "字段多、岗位差异大的列表页默认提供列设置，按用户自动记忆当前页面配置，不把模板管理作为基线能力。",
   },
+  {
+    label: "查询报表页工具条",
+    token: "query report toolbar / export / column-settings",
+    description: "纯查询报表页默认不额外放无意义刷新，也不补一行装饰性的共X条记录；工具条右侧保留导出、列设置等弱次级操作即可。",
+  },
+  {
+    label: "宽表格策略",
+    token: "column width / fixed columns / truncate / tabular-nums",
+    description: "宽表格必须按字段语义分配列宽，并优先评估固定列、长文本截断和数量/时间/单号的稳定对齐语法。",
+  },
 ];
 
 export const designSystemShellRules: DesignSystemRule[] = [
@@ -318,6 +328,11 @@ export const designSystemShellRules: DesignSystemRule[] = [
     label: "分页与Modal",
     token: "compact pagination / icon close",
     description: "分页保持精简，Modal右上角关闭使用线性icon，不用文字按钮。",
+  },
+  {
+    label: "样例调试面板",
+    token: "floating demo toolbar / draggable",
+    description: "演示控件必须和业务按钮分离，默认以弱化悬浮面板提供，并支持鼠标拖动，避免遮挡宽表格和详情内容。",
   },
 ];
 

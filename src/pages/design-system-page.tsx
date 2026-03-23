@@ -418,6 +418,35 @@ export function DesignSystemPage() {
                 <Button onClick={() => setColumnSettingsOpen(true)}>打开列设置示例</Button>
               </div>
             </Card>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card title="查询报表页工具条">
+                <div className="space-y-3">
+                  <div className="text-small leading-ui-relaxed text-text-muted">
+                    纯查询报表页默认不额外补无意义的刷新，也不在工具条左侧放装饰性的“共X条记录”。重点保留导出、列设置等弱次级动作。
+                  </div>
+                  <div className="rounded-sm border border-border bg-bg-subtle p-4">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button size="sm" variant="primary">导出</Button>
+                      <Button size="sm">列设置</Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card title="宽表格规则">
+                <div className="space-y-3">
+                  <div className="text-small leading-ui-relaxed text-text-muted">
+                    宽表格不按平均列宽硬挤。时间、单号、货主、仓库、数量前后值等字段应按语义给宽，并结合固定列、截断和等宽数字提升可读性。
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge tone="processing">固定列</Badge>
+                    <Badge tone="pending">长文本截断</Badge>
+                    <Badge tone="draft">等宽数字</Badge>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
           <RuleList title="数据规则" items={designSystemDataRules} />
         </div>
@@ -500,6 +529,25 @@ export function DesignSystemPage() {
                         </div>
                       </Card>
                     </div>
+
+                    <Card title="样例调试面板">
+                      <div className="space-y-3">
+                        <div className="text-small leading-ui-relaxed text-text-muted">
+                          样例调试面板只用于切换展示状态，不进入业务操作区。默认采用弱化悬浮样式，并支持鼠标拖动，避免挡住宽表格和详情内容。
+                        </div>
+                        <div className="rounded-lg border border-dashed border-border-strong bg-white/80 p-3 shadow-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-small font-section-title text-text-secondary">样例调试面板</span>
+                            <span className="text-mini text-text-muted">可拖动</span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <span className="demo-scenario-chip is-active">正常</span>
+                            <span className="demo-scenario-chip">加载中</span>
+                            <span className="demo-scenario-chip">无权限</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
                   </div>
                 </div>
               </div>

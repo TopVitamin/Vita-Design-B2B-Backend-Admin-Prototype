@@ -1,0 +1,138 @@
+export type InventoryQueryRecord = {
+  id: string;
+  owner: string;
+  warehouse: string;
+  itemCode: string;
+  barcodes: string;
+  itemName: string;
+  categoryLarge: string;
+  categoryMedium: string;
+  categorySmall: string;
+  totalQty: number;
+  availableQty: number;
+  reservedQty: number;
+  frozenQty: number;
+};
+
+export const inventoryQueryRecords: InventoryQueryRecord[] = [
+  {
+    id: "INV-001",
+    owner: "OWN001 华东货主",
+    warehouse: "WH001 上海成品仓",
+    itemCode: "SKU1001001",
+    barcodes: "6901001000012;6901001000019",
+    itemName: "维他命活力饮料500ml",
+    categoryLarge: "C01 饮料",
+    categoryMedium: "C0101 功能饮料",
+    categorySmall: "C010101 瓶装饮料",
+    totalQty: 1280,
+    availableQty: 1080,
+    reservedQty: 120,
+    frozenQty: 80,
+  },
+  {
+    id: "INV-002",
+    owner: "OWN001 华东货主",
+    warehouse: "WH002 杭州电商仓",
+    itemCode: "SKU1001002",
+    barcodes: "6901001000026",
+    itemName: "维他命活力饮料整箱装",
+    categoryLarge: "C01 饮料",
+    categoryMedium: "C0101 功能饮料",
+    categorySmall: "C010102 箱装饮料",
+    totalQty: 640,
+    availableQty: 500,
+    reservedQty: 90,
+    frozenQty: 50,
+  },
+  {
+    id: "INV-003",
+    owner: "OWN002 华南货主",
+    warehouse: "WH003 广州保税仓",
+    itemCode: "SKU2002001",
+    barcodes: "6902002000011;6902002000018",
+    itemName: "晴岚益生菌软糖",
+    categoryLarge: "C02 营养品",
+    categoryMedium: "C0201 软糖",
+    categorySmall: "C020101 成人营养软糖",
+    totalQty: 880,
+    availableQty: 760,
+    reservedQty: 60,
+    frozenQty: 60,
+  },
+  {
+    id: "INV-004",
+    owner: "OWN002 华南货主",
+    warehouse: "WH004 深圳自动化仓",
+    itemCode: "SKU2002002",
+    barcodes: "6902002000025",
+    itemName: "晴岚儿童钙片",
+    categoryLarge: "C02 营养品",
+    categoryMedium: "C0202 钙片",
+    categorySmall: "C020201 儿童钙片",
+    totalQty: 1520,
+    availableQty: 1310,
+    reservedQty: 130,
+    frozenQty: 80,
+  },
+  {
+    id: "INV-005",
+    owner: "OWN003 华北货主",
+    warehouse: "WH005 天津区域仓",
+    itemCode: "SKU3003001",
+    barcodes: "6903003000010",
+    itemName: "澄曜玻尿酸面膜",
+    categoryLarge: "C03 美妆个护",
+    categoryMedium: "C0301 面膜",
+    categorySmall: "C030101 补水面膜",
+    totalQty: 980,
+    availableQty: 840,
+    reservedQty: 70,
+    frozenQty: 70,
+  },
+  {
+    id: "INV-006",
+    owner: "OWN003 华北货主",
+    warehouse: "WH006 北京快消仓",
+    itemCode: "SKU3003002",
+    barcodes: "6903003000027;6903003000024",
+    itemName: "澄曜修护精华",
+    categoryLarge: "C03 美妆个护",
+    categoryMedium: "C0302 精华",
+    categorySmall: "C030201 修护精华",
+    totalQty: 420,
+    availableQty: 360,
+    reservedQty: 30,
+    frozenQty: 30,
+  },
+  {
+    id: "INV-007",
+    owner: "OWN001 华东货主",
+    warehouse: "WH001 上海成品仓",
+    itemCode: "SKU4004001",
+    barcodes: "6904004000014",
+    itemName: "云汐宠物湿粮罐头",
+    categoryLarge: "C04 宠物用品",
+    categoryMedium: "C0401 宠物食品",
+    categorySmall: "C040101 湿粮",
+    totalQty: 2100,
+    availableQty: 1840,
+    reservedQty: 180,
+    frozenQty: 80,
+  },
+  {
+    id: "INV-008",
+    owner: "OWN002 华南货主",
+    warehouse: "WH003 广州保税仓",
+    itemCode: "SKU5005001",
+    barcodes: "6905005000016",
+    itemName: "海岚便携咖啡杯",
+    categoryLarge: "C05 家居日用",
+    categoryMedium: "C0501 水具",
+    categorySmall: "C050101 保温杯",
+    totalQty: 560,
+    availableQty: 420,
+    reservedQty: 90,
+    frozenQty: 50,
+  },
+];

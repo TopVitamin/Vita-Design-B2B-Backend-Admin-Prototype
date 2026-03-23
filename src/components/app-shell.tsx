@@ -85,6 +85,21 @@ const navigationTree: NavSection[] = [
     ],
   },
   {
+    id: "inventory",
+    label: "库存管理",
+    icon: "warehouse",
+    groups: [
+      {
+        id: "inventory-query-group",
+        label: "库存查询",
+        items: [
+          { id: "inventory-query", label: "即时库存查询", icon: "warehouse" },
+          { id: "inventory-flow-query", label: "库存流水查询", icon: "notice" },
+        ],
+      },
+    ],
+  },
+  {
     id: "master-data",
     label: "主数据",
     icon: "master",

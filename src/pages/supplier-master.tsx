@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { Settings2 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -11,6 +10,7 @@ import {
   getDensityClassName,
   usePersistedColumnSettings,
 } from "../components/ui/column-settings";
+import { DemoToolbar } from "../components/ui/demo-toolbar";
 import { IconActionButton } from "../components/ui/icon-action-button";
 import { Modal } from "../components/ui/modal";
 import { Select } from "../components/ui/select";
@@ -291,45 +291,6 @@ function PageHeader({
       </div>
       {actions ? <div className="page-header-actions">{actions}</div> : null}
     </div>
-  );
-}
-
-function DemoToolbar<T extends string>({
-  label,
-  items,
-  value,
-  onChange,
-}: {
-  label: string;
-  items: ReadonlyArray<{ label: string; value: T }>;
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  return createPortal(
-    <div className="demo-toolbar">
-      <div className="demo-toolbar-header">
-        <span className="demo-toolbar-title">样例调试面板</span>
-        <span className="demo-toolbar-desc">用于切换异常、权限和推送分支</span>
-      </div>
-      <div className="demo-scenario-toggle">
-        <span className="demo-scenario-label">{label}</span>
-        {items.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            onClick={() => onChange(item.value)}
-            className={`demo-scenario-chip ${item.value === value ? "is-active" : ""}`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-    </div>,
-    document.body,
   );
 }
 

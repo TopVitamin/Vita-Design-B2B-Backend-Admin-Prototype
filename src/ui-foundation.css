@@ -355,11 +355,22 @@
     box-shadow: var(--shadow-sm);
 }
 
+.demo-toolbar.is-dragging {
+    opacity: 1;
+    transform: none;
+    box-shadow: var(--shadow-sm);
+}
+
 .demo-toolbar-header {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: var(--space-8);
+}
+
+.demo-toolbar-drag-handle {
+    cursor: move;
+    user-select: none;
 }
 
 .demo-toolbar-title {
