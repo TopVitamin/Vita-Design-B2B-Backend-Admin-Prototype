@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
+  Bell,
   Building2,
   ChevronRight,
   ClipboardList,
@@ -14,6 +15,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Palette,
+  Search,
   ScrollText,
   ShoppingCart,
   UserCircle2,
@@ -138,6 +140,27 @@ const defaultGroupExpanded = Object.fromEntries(
   navigationTree.flatMap((section) => section.groups.map((group) => [group.id, true])),
 );
 
+type NotificationFeedTab = "message" | "notice" | "todo";
+
+type NotificationPreviewItem = {
+  id: string;
+  feedTab: NotificationFeedTab;
+  title: string;
+  summary: string;
+  time: string;
+  unread: boolean;
+  avatarLabel: string;
+  avatarBackground: string;
+};
+
+type SearchMenuItem = {
+  id: string;
+  label: string;
+  sectionLabel: string;
+  groupLabel?: string;
+  type: "primary" | "secondary";
+};
+
 export function AppShell({
   tabs,
   currentTab,
@@ -152,6 +175,11 @@ export function AppShell({
   onThemeSwitchAction,
   onLanguageAction,
   onLogoutAction,
+  notificationUnreadCount = 0,
+  notificationPreviewItems = [],
+  onNotificationItemOpen,
+  onNotificationMarkAllRead,
+  onNotificationViewMore,
   children,
 }: {
   tabs: Array<{ key: string; label: string; closable?: boolean; icon?: LucideIcon }>;
@@ -167,27 +195,151 @@ export function AppShell({
   onThemeSwitchAction?: () => void;
   onLanguageAction?: () => void;
   onLogoutAction?: () => void;
+  notificationUnreadCount?: number;
+  notificationPreviewItems?: NotificationPreviewItem[];
+  onNotificationItemOpen?: (id: string) => void;
+  onNotificationMarkAllRead?: (feedTab: NotificationFeedTab) => void;
+  onNotificationViewMore?: () => void;
   children: ReactNode;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(defaultSectionExpanded);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(defaultGroupExpanded);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const [activeNotificationTab, setActiveNotificationTab] = useState<NotificationFeedTab>("message");
+  const [menuSearchOpen, setMenuSearchOpen] = useState(false);
+  const [menuSearchQuery, setMenuSearchQuery] = useState("");
+  const [menuSearchHighlightedIndex, setMenuSearchHighlightedIndex] = useState(0);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const notificationPanelRef = useRef<HTMLDivElement | null>(null);
+  const menuSearchRef = useRef<HTMLDivElement | null>(null);
+  const menuSearchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const notificationTabs = [
+    { id: "message" as const, label: "消息" },
+    { id: "notice" as const, label: "通知" },
+    { id: "todo" as const, label: "待办" },
+  ];
+
+  const currentNotificationItems = notificationPreviewItems.filter((item) => item.feedTab === activeNotificationTab).slice(0, 4);
+  const allSearchMenuItems = useMemo<SearchMenuItem[]>(
+    () => [
+      ...navigationTree.flatMap((section) =>
+        section.groups.flatMap((group) =>
+          group.items
+            .filter((item) => item.enabled !== false)
+            .map((item) => ({
+              id: item.id,
+              label: item.label,
+              sectionLabel: section.label,
+              groupLabel: group.label,
+              type: "primary" as const,
+            })),
+        ),
+      ),
+      ...(secondaryNavItems ?? []).map((item) => ({
+        id: item.id,
+        label: item.label,
+        sectionLabel: "辅助菜单",
+        type: "secondary" as const,
+      })),
+    ],
+    [secondaryNavItems],
+  );
+
+  const filteredSearchMenuItems = useMemo(() => {
+    const keyword = menuSearchQuery.trim().toLowerCase();
+    if (!keyword) {
+      return allSearchMenuItems.slice(0, 8);
+    }
+
+    return allSearchMenuItems
+      .filter((item) =>
+        [item.label, item.sectionLabel, item.groupLabel]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase().includes(keyword)),
+      )
+      .slice(0, 12);
+  }, [allSearchMenuItems, menuSearchQuery]);
+
+  useEffect(() => {
+    if (!menuSearchOpen) {
+      return;
+    }
+
+    if (!filteredSearchMenuItems.length) {
+      setMenuSearchHighlightedIndex(-1);
+      return;
+    }
+
+    setMenuSearchHighlightedIndex((current) => {
+      if (current < 0 || current >= filteredSearchMenuItems.length) {
+        return 0;
+      }
+
+      return current;
+    });
+  }, [filteredSearchMenuItems, menuSearchOpen]);
+
+  useEffect(() => {
+    if (!menuSearchOpen || menuSearchHighlightedIndex < 0) {
+      return;
+    }
+
+    const highlightedItem = menuSearchRef.current?.querySelector<HTMLButtonElement>(
+      `[data-search-index="${menuSearchHighlightedIndex}"]`,
+    );
+    highlightedItem?.scrollIntoView({ block: "nearest" });
+  }, [menuSearchHighlightedIndex, menuSearchOpen]);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
-      if (!userMenuRef.current) {
-        return;
+      const target = event.target as Node;
+
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
+        setUserMenuOpen(false);
       }
 
-      if (!userMenuRef.current.contains(event.target as Node)) {
-        setUserMenuOpen(false);
+      if (notificationPanelRef.current && !notificationPanelRef.current.contains(target)) {
+        setNotificationPanelOpen(false);
+      }
+
+      if (menuSearchRef.current && !menuSearchRef.current.contains(target)) {
+        setMenuSearchOpen(false);
       }
     }
 
     window.addEventListener("pointerdown", handlePointerDown);
     return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      const isEditable =
+        target?.isContentEditable ||
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select";
+
+      if (event.key === "/" && !isEditable) {
+        event.preventDefault();
+        setMenuSearchOpen(true);
+        setMenuSearchHighlightedIndex(0);
+        setNotificationPanelOpen(false);
+        setUserMenuOpen(false);
+        window.setTimeout(() => menuSearchInputRef.current?.focus(), 0);
+      }
+
+      if (event.key === "Escape") {
+        setMenuSearchOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   function toggleSection(sectionId: string) {
@@ -196,6 +348,18 @@ export function AppShell({
 
   function toggleGroup(groupId: string) {
     setExpandedGroups((current) => ({ ...current, [groupId]: !current[groupId] }));
+  }
+
+  function handleSearchItemSelect(item: SearchMenuItem) {
+    if (item.type === "primary") {
+      onNavItemSelect?.(item.id);
+    } else {
+      onSecondaryNavSelect?.(item.id);
+    }
+
+    setMenuSearchOpen(false);
+    setMenuSearchQuery("");
+    setMenuSearchHighlightedIndex(0);
   }
 
   return (
@@ -424,11 +588,197 @@ export function AppShell({
             </div>
 
             <div className="flex shrink-0 items-center gap-actions py-1">
-              <div className="hidden items-center md:flex">
-                <input
-                  className="h-input-md w-64 rounded-sm border border-border px-input-x text-body outline-none ring-0 placeholder:text-text-placeholder"
-                  placeholder="菜单搜索，快捷键 /"
-                />
+              <div ref={menuSearchRef} className="relative hidden md:flex">
+                <div className="relative">
+                  <Search
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+                  />
+                  <input
+                    ref={menuSearchInputRef}
+                    value={menuSearchQuery}
+                    onChange={(event) => {
+                      setMenuSearchQuery(event.target.value);
+                      setMenuSearchOpen(true);
+                      setMenuSearchHighlightedIndex(0);
+                    }}
+                    onFocus={() => {
+                      setMenuSearchOpen(true);
+                      setMenuSearchHighlightedIndex(0);
+                      setNotificationPanelOpen(false);
+                      setUserMenuOpen(false);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        if (!filteredSearchMenuItems.length) {
+                          return;
+                        }
+                        setMenuSearchHighlightedIndex((current) =>
+                          current >= filteredSearchMenuItems.length - 1 ? 0 : current + 1,
+                        );
+                      }
+
+                      if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        if (!filteredSearchMenuItems.length) {
+                          return;
+                        }
+                        setMenuSearchHighlightedIndex((current) =>
+                          current <= 0 ? filteredSearchMenuItems.length - 1 : current - 1,
+                        );
+                      }
+
+                      if (event.key === "Enter" && filteredSearchMenuItems[menuSearchHighlightedIndex]) {
+                        event.preventDefault();
+                        handleSearchItemSelect(filteredSearchMenuItems[menuSearchHighlightedIndex]);
+                      }
+
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        setMenuSearchOpen(false);
+                      }
+                    }}
+                    className="h-input-md w-64 rounded-sm border border-border bg-white pl-9 pr-input-x text-body outline-none ring-0 placeholder:text-text-placeholder transition focus:border-border-focus focus:ring-2 focus:ring-primary-subtle"
+                    placeholder="菜单搜索，快捷键 /"
+                  />
+                </div>
+
+                {menuSearchOpen ? (
+                  <div className="absolute left-0 top-[calc(100%+8px)] z-30 w-full overflow-hidden rounded-md border border-border bg-white shadow-md">
+                    <div className="max-h-[420px] overflow-auto py-2">
+                      {filteredSearchMenuItems.length ? (
+                        filteredSearchMenuItems.map((item, index) => (
+                          <button
+                            key={`${item.type}-${item.id}`}
+                            type="button"
+                            data-search-index={index}
+                            onClick={() => handleSearchItemSelect(item)}
+                            onMouseEnter={() => setMenuSearchHighlightedIndex(index)}
+                            className={`block w-full px-section py-2 text-left transition ${
+                              index === menuSearchHighlightedIndex ? "bg-primary-subtle" : "hover:bg-bg-hover"
+                            }`}
+                          >
+                            <span className="block min-w-0">
+                              <span className="block truncate text-body text-text-primary">{item.label}</span>
+                              <span className="mt-1 block truncate text-small text-text-muted">
+                                {item.groupLabel ? `${item.sectionLabel} / ${item.groupLabel}` : item.sectionLabel}
+                              </span>
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-section py-10 text-center text-body text-text-muted">没有找到匹配的菜单。</div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div ref={notificationPanelRef} className="relative">
+                <button
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-expanded={notificationPanelOpen}
+                  aria-label="打开消息通知"
+                  onClick={() => {
+                    setNotificationPanelOpen((current) => !current);
+                    setUserMenuOpen(false);
+                  }}
+                  className={`relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-subtle focus-visible:ring-offset-2 ${
+                    notificationPanelOpen ? "border-primary bg-primary-subtle text-primary" : "border-border bg-white text-text-secondary hover:bg-bg-hover"
+                  }`}
+                >
+                  <Bell aria-hidden="true" className="h-4 w-4" />
+                  {notificationUnreadCount > 0 ? (
+                    <span className="absolute -right-1 -top-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-danger px-1 text-[10px] leading-4 text-white">
+                      {notificationUnreadCount > 99 ? "99+" : notificationUnreadCount}
+                    </span>
+                  ) : null}
+                </button>
+
+                {notificationPanelOpen ? (
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-[420px] overflow-hidden rounded-md border border-border bg-white shadow-md">
+                    <div className="flex items-center justify-between border-b border-border px-section py-section-tight">
+                      <div className="flex items-center gap-2">
+                        {notificationTabs.map((tab) => {
+                          const active = tab.id === activeNotificationTab;
+                          const count = notificationPreviewItems.filter(
+                            (item) => item.feedTab === tab.id && item.unread,
+                          ).length;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setActiveNotificationTab(tab.id)}
+                              className={`rounded-full px-3 py-1.5 text-body transition ${
+                                active ? "bg-primary-subtle text-primary" : "text-text-secondary hover:bg-bg-hover"
+                              }`}
+                            >
+                              {tab.label}({count})
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                    </div>
+
+                    <div className="max-h-[420px] overflow-auto">
+                      {currentNotificationItems.length ? (
+                        currentNotificationItems.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setNotificationPanelOpen(false);
+                              onNotificationItemOpen?.(item.id);
+                            }}
+                            className="flex w-full items-start gap-3 border-b border-border px-section py-section transition hover:bg-bg-hover"
+                          >
+                            <span
+                              className="mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-small font-section-title text-white"
+                              style={{ background: item.avatarBackground }}
+                            >
+                              {item.avatarLabel}
+                            </span>
+                            <span className="min-w-0 flex-1 text-left">
+                              <span className="flex items-center gap-2">
+                                <span className={`truncate text-body ${item.unread ? "font-body-strong text-text-primary" : "text-text-primary"}`}>
+                                  {item.title}
+                                </span>
+                                {item.unread ? <span className="h-2 w-2 shrink-0 rounded-full bg-primary" /> : null}
+                              </span>
+                              <span className="mt-1 block truncate text-body text-text-secondary">{item.summary}</span>
+                              <span className="mt-2 block text-small text-text-muted">{item.time}</span>
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-section py-10 text-center text-body text-text-muted">当前分类下暂无待处理消息。</div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 border-t border-border bg-white">
+                      <button
+                        type="button"
+                        onClick={() => onNotificationMarkAllRead?.(activeNotificationTab)}
+                        className="inline-flex items-center justify-center border-r border-border px-4 py-3 text-body text-primary transition hover:bg-bg-hover"
+                      >
+                        全部已读
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotificationPanelOpen(false);
+                          onNotificationViewMore?.();
+                        }}
+                        className="inline-flex items-center justify-center px-4 py-3 text-body text-primary transition hover:bg-bg-hover"
+                      >
+                        查看更多
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div ref={userMenuRef} className="relative">
@@ -438,6 +788,7 @@ export function AppShell({
                   aria-expanded={userMenuOpen}
                   onClick={() => setUserMenuOpen((current) => !current)}
                   aria-label="打开用户菜单"
+                  onMouseDown={() => setNotificationPanelOpen(false)}
                   className={`inline-flex h-8 w-8 min-w-8 shrink-0 items-center justify-center whitespace-nowrap rounded-sm text-mini font-section-title leading-none tracking-tight text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-subtle focus-visible:ring-offset-2 ${
                     userMenuOpen ? "bg-primary-hover" : "bg-primary hover:bg-primary-hover"
                   }`}

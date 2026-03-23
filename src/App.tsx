@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownToLine, Building2, ChevronDown, CircleAlert, ClipboardList, Clock3, House, Palette, Plus, ScrollText, Settings2, Users, Warehouse } from "lucide-react";
+import { ArrowDownToLine, Bell, Building2, ChevronDown, CircleAlert, ClipboardList, Clock3, House, Palette, Plus, ScrollText, Settings2, Users, Warehouse } from "lucide-react";
 import { AppShell } from "./components/app-shell";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
@@ -17,9 +17,16 @@ import { IconActionButton } from "./components/ui/icon-action-button";
 import { Modal } from "./components/ui/modal";
 import { Select } from "./components/ui/select";
 import { Tabs } from "./components/ui/tabs";
+import {
+  initialMessageRecords,
+  type MessageCategoryId,
+  type MessageFeedTab,
+  type MessageRecord,
+} from "./data/message-center";
 import { DesignSystemPage } from "./pages/design-system-page";
 import { InventoryFlowQueryPage } from "./pages/inventory-flow-query";
 import { InventoryQueryPage } from "./pages/inventory-query";
+import { MessageCenterPage } from "./pages/message-center";
 import {
   approvalLogs,
   lineItems,
@@ -63,6 +70,7 @@ import {
 type WorkspaceTabKey =
   | "home"
   | "design-system"
+  | "message-center"
   | "list"
   | "create"
   | "edit"
@@ -436,6 +444,11 @@ export default function App() {
   const [customerExportRange, setCustomerExportRange] = useState("filtered");
   const [customerExportFormat, setCustomerExportFormat] = useState("xlsx");
   const [customerNotice, setCustomerNotice] = useState<CustomerNotice>(null);
+  const [messageRecords, setMessageRecords] = useState<MessageRecord[]>(initialMessageRecords);
+  const [messageCenterCategory, setMessageCenterCategory] = useState<MessageCategoryId>("all");
+  const [messageCenterOnlyUnread, setMessageCenterOnlyUnread] = useState(true);
+  const [messageCenterSelectedIds, setMessageCenterSelectedIds] = useState<string[]>([]);
+  const [messageCenterActiveMessageId, setMessageCenterActiveMessageId] = useState<string | null>(null);
   const [floatingAlert, setFloatingAlert] = useState<FloatingAlertNotice | null>(null);
 
   useEffect(() => {
@@ -518,6 +531,26 @@ export default function App() {
     [customerCurrentCode, customerRecords],
   );
 
+  const notificationUnreadCount = useMemo(
+    () => messageRecords.filter((item) => item.unread).length,
+    [messageRecords],
+  );
+
+  const notificationPreviewItems = useMemo(
+    () =>
+      messageRecords.map((item) => ({
+        id: item.id,
+        feedTab: item.feedTab,
+        title: item.title,
+        summary: item.summary,
+        time: item.previewTime,
+        unread: item.unread,
+        avatarLabel: item.avatarLabel,
+        avatarBackground: item.avatarBackground,
+      })),
+    [messageRecords],
+  );
+
   function showFloatingAlert(notice: FloatingAlertInput) {
     setFloatingAlert({
       id: Date.now(),
@@ -555,10 +588,104 @@ export default function App() {
     });
   }
 
+  function markMessagesAsRead(ids: string[]) {
+    if (!ids.length) {
+      return;
+    }
+
+    const idSet = new Set(ids);
+    setMessageRecords((current) =>
+      current.map((item) => (idSet.has(item.id) ? { ...item, unread: false } : item)),
+    );
+  }
+
+  function openMessageCenter(category: MessageCategoryId = "all", messageId?: string) {
+    setMessageCenterCategory(category);
+    setMessageCenterSelectedIds([]);
+    openWorkspaceTab("message-center");
+
+    if (messageId) {
+      setMessageCenterActiveMessageId(messageId);
+      markMessagesAsRead([messageId]);
+      return;
+    }
+
+    setMessageCenterActiveMessageId(null);
+  }
+
+  function openMessageDetail(id: string) {
+    setMessageCenterActiveMessageId(id);
+    markMessagesAsRead([id]);
+  }
+
+  function markFeedMessagesAsRead(feedTab: MessageFeedTab) {
+    const unreadIds = messageRecords.filter((item) => item.feedTab === feedTab && item.unread).map((item) => item.id);
+    if (!unreadIds.length) {
+      showFloatingAlert({
+        tone: "info",
+        title: "当前分类没有未读消息",
+        description: "你可以切换到其它分类继续处理待办或通知。",
+      });
+      return;
+    }
+
+    markMessagesAsRead(unreadIds);
+    showFloatingAlert({
+      tone: "success",
+      title: "已全部标记为已读",
+      description: `当前分类下共${unreadIds.length}条消息已更新为已读。`,
+    });
+  }
+
+  function markSelectedMessagesAsRead() {
+    const unreadIds = messageCenterSelectedIds.filter((id) => messageRecords.find((item) => item.id === id)?.unread);
+    if (!unreadIds.length) {
+      showFloatingAlert({
+        tone: "info",
+        title: "未选择可处理消息",
+        description: "请先勾选未读消息，再执行批量已读。",
+      });
+      return;
+    }
+
+    markMessagesAsRead(unreadIds);
+    setMessageCenterSelectedIds((current) => current.filter((id) => !unreadIds.includes(id)));
+    showFloatingAlert({
+      tone: "success",
+      title: "批量已读完成",
+      description: `已将${unreadIds.length}条消息标记为已读。`,
+    });
+  }
+
+  function openMessageRelatedTarget(record: MessageRecord) {
+    if (record.actionTarget === "purchase-detail") {
+      openWorkspaceTab("detail");
+      return;
+    }
+
+    if (record.actionTarget === "purchase-list") {
+      openWorkspaceTab("list");
+      return;
+    }
+
+    if (record.actionTarget === "supplier-list") {
+      openSupplierList();
+      return;
+    }
+
+    if (record.actionTarget === "inventory-flow-query") {
+      openInventoryFlowQuery();
+      return;
+    }
+
+    showPendingAlert("关联详情");
+  }
+
   const tabs = useMemo(() => {
     const definitions = {
       home: { key: "home", label: "首页", closable: false, icon: House },
       "design-system": { key: "design-system", label: "Design System", closable: true, icon: Palette },
+      "message-center": { key: "message-center", label: "消息中心", closable: true, icon: Bell },
       list: { key: "list", label: "采购订单列表", closable: true },
       create: { key: "create", label: "新建采购订单", closable: true },
       edit: { key: "edit", label: "编辑采购订单", closable: true },
@@ -977,7 +1104,7 @@ export default function App() {
   }
 
   const activeNavItemId =
-    activeTab === "home" || activeTab === "design-system"
+    activeTab === "home" || activeTab === "design-system" || activeTab === "message-center"
       ? undefined
       : activeTab.startsWith("supplier-")
         ? "supplier"
@@ -1024,6 +1151,11 @@ export default function App() {
       onThemeSwitchAction={() => setThemeModalOpen(true)}
       onLanguageAction={() => showPendingAlert("语言切换")}
       onLogoutAction={() => showPendingAlert("退出登录")}
+      notificationUnreadCount={notificationUnreadCount}
+      notificationPreviewItems={notificationPreviewItems}
+      onNotificationItemOpen={(id) => openMessageCenter("all", id)}
+      onNotificationMarkAllRead={markFeedMessagesAsRead}
+      onNotificationViewMore={() => openMessageCenter("all")}
     >
       {activeTab === "home" && (
         <HomePage
@@ -1040,6 +1172,26 @@ export default function App() {
         />
       )}
       {activeTab === "design-system" && <DesignSystemPage />}
+      {activeTab === "message-center" && (
+        <MessageCenterPage
+          records={messageRecords}
+          activeCategory={messageCenterCategory}
+          onlyUnread={messageCenterOnlyUnread}
+          selectedIds={messageCenterSelectedIds}
+          activeMessageId={messageCenterActiveMessageId}
+          onCategoryChange={(category) => {
+            setMessageCenterCategory(category);
+            setMessageCenterSelectedIds([]);
+          }}
+          onOnlyUnreadChange={setMessageCenterOnlyUnread}
+          onSelectedIdsChange={setMessageCenterSelectedIds}
+          onOpenMessage={openMessageDetail}
+          onCloseMessage={() => setMessageCenterActiveMessageId(null)}
+          onMarkSelectedRead={markSelectedMessagesAsRead}
+          onOpenRelated={openMessageRelatedTarget}
+          onOpenSettings={() => showPendingAlert("消息设置")}
+        />
+      )}
       {activeTab === "inventory-query" && <InventoryQueryPage onShowAlert={showFloatingAlert} />}
       {activeTab === "inventory-flow-query" && <InventoryFlowQueryPage onShowAlert={showFloatingAlert} />}
       {activeTab === "list" && (
