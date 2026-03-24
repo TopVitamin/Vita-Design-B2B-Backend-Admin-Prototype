@@ -30,7 +30,88 @@
   }
 
   input[type="checkbox"] {
-    accent-color: var(--primary);
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex-shrink: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xs);
+    background-color: var(--bg-container);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 12px 12px;
+    cursor: pointer;
+    transition:
+      border-color 0.16s ease,
+      background-color 0.16s ease,
+      box-shadow 0.16s ease;
+  }
+
+  input[type="checkbox"]:hover {
+    border-color: var(--primary);
+  }
+
+  input[type="checkbox"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--primary-subtle);
+  }
+
+  input[type="checkbox"]:checked {
+    border-color: var(--primary);
+    background-color: var(--primary);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2' d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E");
+  }
+
+  input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  input[type="checkbox"]:disabled:not(:checked) {
+    background-color: var(--bg-subtle);
+  }
+
+  input[type="radio"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex-shrink: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    background-color: var(--bg-container);
+    cursor: pointer;
+    transition:
+      border-color 0.16s ease,
+      box-shadow 0.16s ease,
+      background-color 0.16s ease;
+  }
+
+  input[type="radio"]:hover {
+    border-color: var(--primary);
+  }
+
+  input[type="radio"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--primary-subtle);
+  }
+
+  input[type="radio"]:checked {
+    border-color: var(--primary);
+    background:
+      radial-gradient(circle at center, #fff 0 3px, var(--primary) 3px 100%);
+  }
+
+  input[type="radio"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  input[type="radio"]:disabled:not(:checked) {
+    background-color: var(--bg-subtle);
   }
 
   table {

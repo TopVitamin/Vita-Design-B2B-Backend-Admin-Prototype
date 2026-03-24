@@ -63,7 +63,7 @@ export function ExportTaskCenterPage({
 }) {
   const [dateRange, setDateRange] = useState({
     start: "2026-01-22",
-    end: "2026-03-23",
+    end: "2026-03-24",
   });
 
   const filteredRecords = useMemo(

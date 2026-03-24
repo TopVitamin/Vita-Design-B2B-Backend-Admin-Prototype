@@ -510,10 +510,11 @@
 }
 
 .workspace-tab-item {
+    position: relative;
     display: inline-flex;
     align-items: center;
     height: calc(var(--tabs-height) - 1px);
-    gap: var(--space-4);
+    gap: var(--space-2);
     font-size: var(--tabs-font-size);
     border-bottom: 2px solid transparent;
     color: var(--text-secondary);
@@ -522,16 +523,18 @@
 }
 
 .workspace-tab-trigger {
+    position: relative;
     display: inline-flex;
     align-items: center;
     height: 100%;
     font-weight: var(--tabs-font-weight);
+    padding: 0 1px;
 }
 
 .workspace-tab-label {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-6);
+    gap: var(--space-8);
     min-width: 0;
     line-height: 1;
 }
@@ -543,13 +546,35 @@
 }
 
 .workspace-tab-text {
+    position: relative;
     display: block;
     line-height: 1;
 }
 
 .workspace-tab-item.is-active {
     color: var(--primary);
-    border-bottom-color: var(--primary);
+    border-bottom-color: transparent;
+}
+
+.workspace-tab-item.is-active .workspace-tab-text::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -17px;
+    height: 2px;
+    background: currentColor;
+}
+
+.workspace-tab-item:not(:last-child)::after {
+    content: "";
+    width: 1px;
+    height: 14px;
+    background: var(--border-subtle);
+}
+
+.workspace-tab-item.is-active::after {
+    background: transparent;
 }
 
 .workspace-tab-close {
@@ -565,6 +590,15 @@
     color: var(--text-muted);
     padding: 0;
     cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.workspace-tab-item:hover .workspace-tab-close,
+.workspace-tab-item:focus-within .workspace-tab-close {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .workspace-tab-close:hover,

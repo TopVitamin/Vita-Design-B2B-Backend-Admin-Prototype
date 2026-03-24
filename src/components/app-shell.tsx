@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Bell,
   Building2,
+  ChevronDown,
   ChevronRight,
   ClipboardList,
   Database,
@@ -217,10 +218,16 @@ export function AppShell({
   const [menuSearchOpen, setMenuSearchOpen] = useState(false);
   const [menuSearchQuery, setMenuSearchQuery] = useState("");
   const [menuSearchHighlightedIndex, setMenuSearchHighlightedIndex] = useState(0);
+  const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
+  const [visibleTabKeys, setVisibleTabKeys] = useState<string[]>(tabs.map((tab) => tab.key));
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const notificationPanelRef = useRef<HTMLDivElement | null>(null);
   const menuSearchRef = useRef<HTMLDivElement | null>(null);
   const menuSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const overflowMenuRef = useRef<HTMLDivElement | null>(null);
+  const visibleTabsContainerRef = useRef<HTMLDivElement | null>(null);
+  const overflowTriggerMeasureRef = useRef<HTMLButtonElement | null>(null);
+  const measureTabRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const notificationTabs = [
     { id: "message" as const, label: "消息" },
@@ -314,6 +321,10 @@ export function AppShell({
       if (menuSearchRef.current && !menuSearchRef.current.contains(target)) {
         setMenuSearchOpen(false);
       }
+
+      if (overflowMenuRef.current && !overflowMenuRef.current.contains(target)) {
+        setOverflowMenuOpen(false);
+      }
     }
 
     window.addEventListener("pointerdown", handlePointerDown);
@@ -366,6 +377,131 @@ export function AppShell({
     setMenuSearchOpen(false);
     setMenuSearchQuery("");
     setMenuSearchHighlightedIndex(0);
+  }
+
+  useLayoutEffect(() => {
+    function updateVisibleTabs() {
+      const container = visibleTabsContainerRef.current;
+      if (!container) {
+        return;
+      }
+
+      const containerWidth = container.clientWidth;
+      if (!containerWidth) {
+        return;
+      }
+
+      const tabWidths = tabs.map((tab) => ({
+        key: tab.key,
+        width: measureTabRefs.current[tab.key]?.offsetWidth ?? 0,
+      }));
+      const totalWidth = tabWidths.reduce((sum, tab) => sum + tab.width, 0);
+      if (totalWidth <= containerWidth) {
+        setVisibleTabKeys(tabs.map((tab) => tab.key));
+        return;
+      }
+
+      const overflowTriggerWidth = overflowTriggerMeasureRef.current?.offsetWidth ?? 36;
+      const availableWidth = Math.max(containerWidth - overflowTriggerWidth - 8, 0);
+      const requiredKeys = new Set<string>();
+      if (tabs[0]) {
+        requiredKeys.add(tabs[0].key);
+      }
+      requiredKeys.add(currentTab);
+
+      let usedWidth = 0;
+      const nextVisibleKeys: string[] = [];
+
+      tabs.forEach((tab) => {
+        if (!requiredKeys.has(tab.key)) {
+          return;
+        }
+
+        const width = tabWidths.find((item) => item.key === tab.key)?.width ?? 0;
+        usedWidth += width;
+        nextVisibleKeys.push(tab.key);
+      });
+
+      tabs.forEach((tab) => {
+        if (requiredKeys.has(tab.key)) {
+          return;
+        }
+
+        const width = tabWidths.find((item) => item.key === tab.key)?.width ?? 0;
+        if (usedWidth + width <= availableWidth) {
+          usedWidth += width;
+          nextVisibleKeys.push(tab.key);
+        }
+      });
+
+      const orderedVisibleKeys = tabs
+        .map((tab) => tab.key)
+        .filter((key) => nextVisibleKeys.includes(key));
+
+      setVisibleTabKeys((current) =>
+        current.length === orderedVisibleKeys.length && current.every((key, index) => key === orderedVisibleKeys[index])
+          ? current
+          : orderedVisibleKeys,
+      );
+    }
+
+    updateVisibleTabs();
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => updateVisibleTabs())
+        : null;
+
+    if (visibleTabsContainerRef.current && observer) {
+      observer.observe(visibleTabsContainerRef.current);
+    }
+
+    window.addEventListener("resize", updateVisibleTabs);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateVisibleTabs);
+    };
+  }, [currentTab, tabs]);
+
+  const visibleTabs = tabs.filter((tab) => visibleTabKeys.includes(tab.key));
+  const overflowTabs = tabs.filter((tab) => !visibleTabKeys.includes(tab.key));
+
+  useEffect(() => {
+    if (!overflowTabs.length && overflowMenuOpen) {
+      setOverflowMenuOpen(false);
+    }
+  }, [overflowMenuOpen, overflowTabs.length]);
+
+  function renderTab(tab: { key: string; label: string; closable?: boolean; icon?: LucideIcon }) {
+    const active = tab.key === currentTab;
+    const TabIcon = tab.icon;
+
+    return (
+      <div key={tab.key} className={`workspace-tab-item ${active ? "is-active" : ""}`}>
+        <button
+          type="button"
+          className="workspace-tab-trigger border-0 bg-transparent p-0 text-inherit focus-visible:outline-none"
+          onClick={() => {
+            onTabChange(tab.key);
+            setOverflowMenuOpen(false);
+          }}
+        >
+          <span className="workspace-tab-label">
+            {TabIcon ? <TabIcon aria-hidden="true" strokeWidth={1.8} className="workspace-tab-icon" /> : null}
+            <span className="workspace-tab-text">{tab.label}</span>
+          </span>
+        </button>
+        {tab.closable ? (
+          <button
+            type="button"
+            className="workspace-tab-close focus-visible:outline-none"
+            aria-label={`关闭${tab.label}`}
+            onClick={() => onTabClose(tab.key)}
+          >
+            <X aria-hidden="true" strokeWidth={1.8} className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -561,36 +697,104 @@ export function AppShell({
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="relative z-20 shrink-0 bg-white/96 shadow-[0_6px_18px_rgba(16,24,40,0.04)] backdrop-blur supports-[backdrop-filter]:bg-white/88">
-          <div className="workspace-tab-strip">
-            <div className="flex h-full min-w-0 flex-1 items-center gap-4 overflow-x-auto pr-4">
-              {tabs.map((tab) => {
-                const active = tab.key === currentTab;
-                const TabIcon = tab.icon;
-                return (
-                  <div key={tab.key} className={`workspace-tab-item ${active ? "is-active" : ""}`}>
-                    <button
-                      type="button"
-                      className="workspace-tab-trigger border-0 bg-transparent p-0 text-inherit focus-visible:outline-none"
-                      onClick={() => onTabChange(tab.key)}
+          <div className="pointer-events-none absolute left-0 top-0 h-0 overflow-hidden opacity-0">
+            <div className="workspace-tab-strip">
+              <div className="flex items-center">
+                {tabs.map((tab) => {
+                  const active = tab.key === currentTab;
+                  const TabIcon = tab.icon;
+                  return (
+                    <div
+                      key={`measure-${tab.key}`}
+                      ref={(node) => {
+                        measureTabRefs.current[tab.key] = node;
+                      }}
+                      className={`workspace-tab-item ${active ? "is-active" : ""}`}
                     >
                       <span className="workspace-tab-label">
                         {TabIcon ? <TabIcon aria-hidden="true" strokeWidth={1.8} className="workspace-tab-icon" /> : null}
                         <span className="workspace-tab-text">{tab.label}</span>
                       </span>
-                    </button>
-                    {tab.closable ? (
-                      <button
-                        type="button"
-                        className="workspace-tab-close focus-visible:outline-none"
-                        aria-label={`关闭${tab.label}`}
-                        onClick={() => onTabClose(tab.key)}
-                      >
-                        <X aria-hidden="true" strokeWidth={1.8} className="h-3.5 w-3.5" />
-                      </button>
-                    ) : null}
-                  </div>
-                );
-              })}
+                      {tab.closable ? (
+                        <span className="workspace-tab-close">
+                          <X aria-hidden="true" strokeWidth={1.8} className="h-3.5 w-3.5" />
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                })}
+                <button
+                  ref={overflowTriggerMeasureRef}
+                  type="button"
+                  className="inline-flex h-8 min-w-[52px] items-center justify-center gap-1 rounded-sm border border-border px-2 text-text-secondary"
+                >
+                  <span className="text-mini font-body-strong">+9</span>
+                  <ChevronDown aria-hidden="true" className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="workspace-tab-strip">
+            <div ref={visibleTabsContainerRef} className="flex h-full min-w-0 flex-1 items-center gap-2 pr-3">
+              <div className="flex h-full min-w-0 flex-1 items-center gap-2 overflow-hidden">
+                {visibleTabs.map((tab) => renderTab(tab))}
+              </div>
+              {overflowTabs.length ? (
+                <div ref={overflowMenuRef} className="relative shrink-0">
+                  <button
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={overflowMenuOpen}
+                    aria-label={`更多页签，已折叠${overflowTabs.length}项`}
+                    className={`inline-flex h-8 min-w-[52px] items-center justify-center gap-1 rounded-sm border px-2 text-text-secondary transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-subtle focus-visible:ring-offset-2 ${
+                      overflowMenuOpen ? "border-primary bg-primary-subtle text-primary" : "border-border bg-white hover:bg-bg-hover"
+                    }`}
+                    onClick={() => setOverflowMenuOpen((current) => !current)}
+                  >
+                    <span className="text-mini font-body-strong leading-none">+{overflowTabs.length}</span>
+                    <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${overflowMenuOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {overflowMenuOpen ? (
+                    <div className="absolute right-0 top-[calc(100%+8px)] z-30 max-h-[360px] min-w-[160px] max-w-[240px] overflow-auto rounded-md border border-border bg-white p-2 shadow-md">
+                      <div className="space-y-1">
+                        {overflowTabs.map((tab) => {
+                          const active = tab.key === currentTab;
+                          const TabIcon = tab.icon;
+
+                          return (
+                            <div key={`overflow-${tab.key}`} className="flex items-center gap-1 rounded-sm hover:bg-bg-hover">
+                              <button
+                                type="button"
+                                className={`flex min-w-0 flex-1 items-center gap-2 rounded-sm px-3 py-2 text-left text-body transition ${
+                                  active ? "bg-primary-subtle text-primary" : "text-text-primary"
+                                }`}
+                                onClick={() => {
+                                  onTabChange(tab.key);
+                                  setOverflowMenuOpen(false);
+                                }}
+                              >
+                                {TabIcon ? <TabIcon aria-hidden="true" strokeWidth={1.8} className="h-4 w-4 shrink-0" /> : null}
+                                <span className="truncate">{tab.label}</span>
+                              </button>
+                              {tab.closable ? (
+                                <button
+                                  type="button"
+                                  aria-label={`关闭${tab.label}`}
+                                  className="workspace-tab-close focus-visible:outline-none"
+                                  onClick={() => onTabClose(tab.key)}
+                                >
+                                  <X aria-hidden="true" strokeWidth={1.8} className="h-3.5 w-3.5" />
+                                </button>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             <div className="flex h-full shrink-0 items-center gap-actions">
