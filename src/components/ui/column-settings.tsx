@@ -3,6 +3,7 @@ import { Check, GripVertical, Pin, RotateCcw } from "lucide-react";
 import { cn } from "../../lib/cn";
 import { Button } from "./button";
 import { Modal } from "./modal";
+import { SegmentedControl } from "./segmented-control";
 
 export type TableDensity = "compact" | "medium" | "relaxed";
 
@@ -342,18 +343,11 @@ export function ColumnSettingsModal({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="text-small text-text-muted">{densityLabel}</div>
-            <div className="column-density-switch">
-              {densityOptions.map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  className={cn("column-density-chip", normalizedDraft.density === item.value && "is-active")}
-                  onClick={() => updateDraft({ ...normalizedDraft, density: item.value })}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              items={densityOptions}
+              value={normalizedDraft.density}
+              onChange={(value) => updateDraft({ ...normalizedDraft, density: value })}
+            />
           </div>
         </div>
 

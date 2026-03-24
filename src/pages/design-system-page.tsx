@@ -13,12 +13,29 @@ import {
   SwatchBook,
   X,
 } from "lucide-react";
+import { Banner } from "../components/ui/banner";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
+import { DateRangePicker } from "../components/ui/date-range-picker";
+import { DescriptionList } from "../components/ui/description-list";
+import { Drawer } from "../components/ui/drawer";
+import { ExceptionState } from "../components/ui/exception-state";
+import { FilterChip } from "../components/ui/filter-chip";
 import { FloatingAlert, type FloatingAlertInput } from "../components/ui/floating-alert";
+import { Input } from "../components/ui/input";
+import { AttachmentPanel } from "../components/ui/attachment-panel";
+import { ListPageMainCard, ListPageToolbar } from "../components/ui/list-page-layout";
+import { Pagination } from "../components/ui/pagination";
+import { PageHeader } from "../components/ui/page-header";
+import { SegmentedControl } from "../components/ui/segmented-control";
 import { Select } from "../components/ui/select";
+import { Switch } from "../components/ui/switch";
 import { Tabs } from "../components/ui/tabs";
+import { Timeline } from "../components/ui/timeline";
+import { Textarea } from "../components/ui/textarea";
+import { UploadDropzone } from "../components/ui/upload-dropzone";
 import {
   type ColumnSettingsField,
   ColumnSettingsModal,
@@ -65,11 +82,7 @@ const statusOptions = [
   { label: "已完成", value: "success" },
 ];
 
-const pageSizeOptions = [
-  { label: "20条", value: "20" },
-  { label: "50条", value: "50" },
-  { label: "100条", value: "100" },
-];
+const pageSizeOptions = [20, 50, 100];
 
 const columnSettingsFields: ColumnSettingsField[] = [
   { id: "company", label: "公司", group: "基础信息", required: true, defaultFixed: true },
@@ -91,11 +104,13 @@ const columnSettingsFields: ColumnSettingsField[] = [
 export function DesignSystemPage() {
   const [activeSection, setActiveSection] = useState("colors");
   const [selectValue, setSelectValue] = useState("");
-  const [pageSize, setPageSize] = useState("20");
+  const [pageSize, setPageSize] = useState(20);
   const [checked, setChecked] = useState(true);
   const [switchOn, setSwitchOn] = useState(true);
   const [feedbackAlert, setFeedbackAlert] = useState<FloatingAlertInput | null>(null);
   const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [dateRange, setDateRange] = useState({ start: "2026-03-01", end: "2026-03-24" });
   const {
     state: columnSettingsState,
     defaultState: columnSettingsDefaultState,
@@ -329,7 +344,7 @@ export function DesignSystemPage() {
               <div className="grid gap-4 lg:grid-cols-2">
                 <div>
                   <div className="field-label">输入框</div>
-                  <input className="field-control" placeholder="请输入" />
+                  <Input placeholder="请输入" />
                 </div>
                 <div>
                   <div className="field-label">下拉选择</div>
@@ -342,30 +357,42 @@ export function DesignSystemPage() {
                 </div>
                 <div>
                   <div className="field-label">Checkbox</div>
-                  <label className="choice-control">
-                    <input
-                      checked={checked}
-                      onChange={(event) => setChecked(event.target.checked)}
-                      type="checkbox"
-                    />
-                    <span>默认勾选</span>
-                  </label>
+                  <Checkbox checked={checked} onChange={(event) => setChecked(event.target.checked)} label="默认勾选" variant="card" />
                 </div>
                 <div>
                   <div className="field-label">Switch</div>
-                  <button
-                    type="button"
-                    className={`switch-control ${switchOn ? "is-on" : ""}`}
-                    onClick={() => setSwitchOn((current) => !current)}
-                  >
-                    <span className="switch-track">
-                      <span className="switch-thumb" />
-                    </span>
-                    <span>{switchOn ? "已启用" : "已关闭"}</span>
-                  </button>
+                  <Switch checked={switchOn} onCheckedChange={setSwitchOn} />
+                </div>
+                <div className="lg:col-span-2">
+                  <div className="field-label">Textarea</div>
+                  <Textarea placeholder="请输入" />
                 </div>
               </div>
             </Card>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <Card title="DateRangePicker">
+                <div className="space-y-3">
+                  <div className="text-small leading-ui-relaxed text-text-muted">
+                    系统级工具条和查询区优先复用统一日期区间控件，不再用假按钮占位。
+                  </div>
+                  <DateRangePicker value={dateRange} onChange={setDateRange} />
+                </div>
+              </Card>
+
+              <Card title="AttachmentPanel">
+                <AttachmentPanel
+                  items={[
+                    { id: "demo-1", name: "采购合同.pdf", size: "1.6MB", status: "uploaded" },
+                    { id: "demo-2", name: "价格核对单.xlsx", size: "320KB", status: "failed" },
+                  ]}
+                  onUpload={() => {}}
+                  onDownload={() => {}}
+                  onDelete={() => {}}
+                  onRetry={() => {}}
+                />
+              </Card>
+            </div>
           </div>
           <RuleList title="控件规则" items={designSystemControlRules} />
         </div>
@@ -485,13 +512,13 @@ export function DesignSystemPage() {
                         <div className="workspace-tab-item is-active">
                           <span className="workspace-tab-label">
                             <House aria-hidden="true" strokeWidth={1.8} className="workspace-tab-icon" />
-                            <span>首页</span>
+                            <span className="workspace-tab-text">首页</span>
                           </span>
                         </div>
                         <div className="workspace-tab-item">
                           <span className="workspace-tab-label">
                             <Palette aria-hidden="true" strokeWidth={1.8} className="workspace-tab-icon" />
-                            <span>Design System</span>
+                            <span className="workspace-tab-text">Design System</span>
                           </span>
                           <button type="button" className="workspace-tab-close" aria-label="关闭Design System">
                             <X aria-hidden="true" strokeWidth={1.8} className="h-3.5 w-3.5" />
@@ -500,7 +527,7 @@ export function DesignSystemPage() {
                         <div className="workspace-tab-item">
                           <span className="workspace-tab-label">
                             <ClipboardList aria-hidden="true" strokeWidth={1.8} className="workspace-tab-icon" />
-                            <span>采购订单列表</span>
+                            <span className="workspace-tab-text">采购订单列表</span>
                           </span>
                           <button type="button" className="workspace-tab-close" aria-label="关闭采购订单列表">
                             <X aria-hidden="true" strokeWidth={1.8} className="h-3.5 w-3.5" />
@@ -530,6 +557,45 @@ export function DesignSystemPage() {
                       </Card>
                     </div>
 
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <Card title="列表页骨架">
+                        <div className="space-y-3">
+                          <div className="text-small leading-ui-relaxed text-text-muted">
+                            列表页优先复用共享`PageHeader`、`ListPageMainCard`和`ListPageToolbar`骨架，业务差异留在工具条内容和表格定义里。
+                          </div>
+                          <div className="rounded-md border border-border bg-bg-subtle p-3">
+                            <PageHeader
+                              title="供应商主数据"
+                              description="共享页头负责标题、说明和动作位，不重复写外层结构。"
+                              actions={
+                                <div className="flex gap-2">
+                                  <Button size="sm">导入</Button>
+                                  <Button size="sm" variant="primary">
+                                    新增
+                                  </Button>
+                                </div>
+                              }
+                            />
+                            <ListPageMainCard>
+                              <ListPageToolbar className="justify-end">
+                                <Button size="sm">列设置</Button>
+                              </ListPageToolbar>
+                              <div className="px-4 py-6 text-small text-text-muted">查询区、表格区和分页区继续放在主卡片结构内。</div>
+                            </ListPageMainCard>
+                          </div>
+                        </div>
+                      </Card>
+
+                      <Card title="UploadDropzone">
+                        <div className="space-y-3">
+                          <div className="text-small leading-ui-relaxed text-text-muted">
+                            导入弹窗优先复用共享上传区与骨架结构，不再每个业务页各自拼一块虚线容器。
+                          </div>
+                          <UploadDropzone description="支持点击或拖拽上传，业务页只保留文案和结果逻辑差异。" />
+                        </div>
+                      </Card>
+                    </div>
+
                     <Card title="样例调试面板">
                       <div className="space-y-3">
                         <div className="text-small leading-ui-relaxed text-text-muted">
@@ -546,6 +612,61 @@ export function DesignSystemPage() {
                             <span className="demo-scenario-chip">无权限</span>
                           </div>
                         </div>
+                      </div>
+                    </Card>
+
+                    <Card title="切换器体系">
+                      <div className="space-y-4">
+                        <div>
+                          <div className="text-small text-text-muted">工作台 / 状态 / 内容切换：继续使用线性Tab</div>
+                          <div className="mt-2">
+                            <Tabs
+                              items={[
+                                { label: "首页", value: "home" },
+                                { label: "消息中心", value: "message" },
+                                { label: "采购订单", value: "purchase" },
+                              ]}
+                              value="home"
+                              onChange={() => {}}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-small text-text-muted">模式 / 轻过滤切换：使用胶囊分段控件</div>
+                          <div className="mt-2">
+                            <SegmentedControl
+                              items={[
+                                { label: "消息(3)", value: "message" },
+                                { label: "通知(1)", value: "notice" },
+                                { label: "待办(2)", value: "todo" },
+                              ]}
+                              value="message"
+                              onChange={() => {}}
+                            />
+                          </div>
+                          <div className="mt-2 text-mini text-text-muted">
+                            允许胶囊激活项，但外层不再包灰底边框壳；控件本身优先与32px按钮、输入框保持同高。
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-small text-text-muted">快速过滤：可用更轻的Chip，不冒充Tab</div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <FilterChip active>高优先级</FilterChip>
+                            <FilterChip>近7天</FilterChip>
+                            <FilterChip>仅异常</FilterChip>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+
+                    <Card title="Drawer">
+                      <div className="space-y-3">
+                        <div className="text-small leading-ui-relaxed text-text-muted">
+                          查看态详情优先用共享Drawer，遮罩覆盖整个视口，不通过分栏硬挤主体内容。
+                        </div>
+                        <Button onClick={() => setDrawerOpen(true)}>打开Drawer示例</Button>
                       </div>
                     </Card>
                   </div>
@@ -629,22 +750,45 @@ export function DesignSystemPage() {
 
             <Card title="Banner">
               <div className="space-y-3">
-                <div className="state-banner border-warning bg-warning-subtle text-warning">
-                  <div className="space-y-1">
-                    <div className="text-body font-section-title text-warning">需关注的提醒</div>
-                    <div className="text-small text-text-secondary">仅用于说明当前区域存在需处理事项，不替代主结构。</div>
-                  </div>
-                </div>
-                <div className="state-banner border-danger bg-danger-subtle text-danger">
-                  <div className="space-y-1">
-                    <div className="text-body font-section-title text-danger">操作失败</div>
-                    <div className="text-small text-text-secondary">错误反馈优先就近展示，并说明后续可执行动作。</div>
-                  </div>
-                </div>
+                <Banner tone="warning" title="需关注的提醒" description="仅用于说明当前区域存在需处理事项，不替代主结构。" />
+                <Banner tone="error" title="操作失败" description="错误反馈优先就近展示，并说明后续可执行动作。" />
               </div>
             </Card>
 
             <div className="grid gap-4 lg:grid-cols-2">
+              <Card title="DescriptionList">
+                <DescriptionList
+                  columns={2}
+                  items={[
+                    { label: "采购组织", value: "华东采购中心" },
+                    { label: "供应商", value: "华东生鲜原料供应商有限公司" },
+                    { label: "收货仓库", value: "上海生鲜仓" },
+                    { label: "采购员", value: "张敏" },
+                  ]}
+                />
+              </Card>
+
+              <Card title="Timeline">
+                <Timeline
+                  items={[
+                    {
+                      id: "timeline-1",
+                      time: "2026-03-24 09:18:10",
+                      title: "张敏 · 提交审核",
+                      description: "系统已将采购订单提交至采购主管审批。",
+                      tone: "success",
+                    },
+                    {
+                      id: "timeline-2",
+                      time: "2026-03-24 09:25:41",
+                      title: "采购主管 · 审核通过",
+                      description: "采购策略和数量核对无误，允许继续下推。",
+                      tone: "info",
+                    },
+                  ]}
+                />
+              </Card>
+
               <Card title="空状态">
                 <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-bg-subtle px-6 text-center">
                   <Inbox aria-hidden="true" strokeWidth={1.8} className="h-8 w-8 text-text-muted" />
@@ -678,6 +822,14 @@ export function DesignSystemPage() {
                 </div>
               </Card>
             </div>
+
+            <Card title="ExceptionState">
+              <ExceptionState
+                variant="system-maintenance"
+                primaryAction={<Button variant="primary">查看系统通知</Button>}
+                secondaryAction={<Button>稍后重试</Button>}
+              />
+            </Card>
           </div>
           <RuleList title="反馈规则" items={designSystemFeedbackRules} />
         </div>
@@ -693,6 +845,49 @@ export function DesignSystemPage() {
         onClose={() => setColumnSettingsOpen(false)}
         onApply={applyColumnSettingsState}
       />
+      <Drawer
+        open={drawerOpen}
+        title="Drawer示例"
+        onClose={() => setDrawerOpen(false)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setDrawerOpen(false)}>关闭</Button>
+            <Button variant="primary" onClick={() => setDrawerOpen(false)}>
+              确认
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <DescriptionList
+            columns={2}
+            items={[
+              { label: "任务名称", value: "库存流水导出" },
+              { label: "状态", value: "处理中" },
+              { label: "创建时间", value: "2026-03-24 10:32:11" },
+              { label: "记录数", value: "126条" },
+            ]}
+          />
+          <Timeline
+            items={[
+              {
+                id: "drawer-demo-1",
+                time: "2026-03-24 10:32:11",
+                title: "系统已创建导出任务",
+                description: "任务已进入后台排队处理。",
+                tone: "info",
+              },
+              {
+                id: "drawer-demo-2",
+                time: "2026-03-24 10:32:42",
+                title: "文件生成中",
+                description: "当前正在生成CSV文件，请稍后查看结果。",
+                tone: "warning",
+              },
+            ]}
+          />
+        </div>
+      </Drawer>
       <FloatingAlert notice={feedbackAlert} />
     </div>
   );
@@ -958,33 +1153,21 @@ function MiniPagination({
   pageSize,
   onPageSizeChange,
 }: {
-  pageSize: string;
-  onPageSizeChange: (value: string) => void;
+  pageSize: number;
+  onPageSizeChange: (value: number) => void;
 }) {
   return (
-    <div className="space-y-3 rounded-md border border-border bg-bg-subtle p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3 text-small text-text-muted">
-        <span>共245条</span>
-        <div className="flex flex-wrap items-center gap-actions">
-          <label className="flex items-center gap-control">
-            <span>每页</span>
-            <Select className="h-input-sm w-[92px] bg-white" value={pageSize} onValueChange={onPageSizeChange} options={pageSizeOptions} />
-          </label>
-          <span>3/12页</span>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-2">
-          <Button size="sm">上一页</Button>
-          <Button size="sm" variant="primary">
-            下一页
-          </Button>
-        </div>
-        <div className="flex items-center gap-2 text-small text-text-muted">
-          <span>跳转</span>
-          <input className="field-control h-input-sm w-[72px]" defaultValue="3" placeholder="请输入" />
-        </div>
-      </div>
+    <div className="rounded-md border border-border bg-bg-subtle">
+      <Pagination
+        currentPage={3}
+        totalPages={12}
+        totalCount={245}
+        pageSize={pageSize}
+        pageSizeOptions={pageSizeOptions}
+        className="px-3 py-3"
+        onPageChange={() => {}}
+        onPageSizeChange={onPageSizeChange}
+      />
     </div>
   );
 }

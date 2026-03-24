@@ -209,7 +209,7 @@
     /* =========================
      * Tabs
      * ========================= */
-    --tabs-height: 40px;
+    --tabs-height: 48px;
     --tabs-font-size: 14px;
     --tabs-font-weight: 400;
     --tabs-gap: 18px;
@@ -513,7 +513,7 @@
     display: inline-flex;
     align-items: center;
     height: calc(var(--tabs-height) - 1px);
-    gap: var(--space-6);
+    gap: var(--space-4);
     font-size: var(--tabs-font-size);
     border-bottom: 2px solid transparent;
     color: var(--text-secondary);
@@ -532,11 +532,19 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-6);
+    min-width: 0;
+    line-height: 1;
 }
 
 .workspace-tab-icon {
     width: var(--icon-size-sm);
     height: var(--icon-size-sm);
+    flex-shrink: 0;
+}
+
+.workspace-tab-text {
+    display: block;
+    line-height: 1;
 }
 
 .workspace-tab-item.is-active {
@@ -549,6 +557,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border-radius: 999px;
     background: transparent;
     color: var(--text-muted);
     padding: 0;
@@ -557,6 +569,7 @@
 
 .workspace-tab-close:hover,
 .workspace-tab-close:focus-visible {
+    background: var(--bg-hover);
     color: var(--text-primary);
 }
 

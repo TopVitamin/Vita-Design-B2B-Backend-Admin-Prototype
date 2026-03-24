@@ -1,10 +1,13 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownToLine, Bell, Building2, ChevronDown, CircleAlert, ClipboardList, Clock3, House, Palette, Plus, ScrollText, Settings2, Users, Warehouse } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, Bell, Building2, ChevronDown, CircleAlert, ClipboardList, Clock3, Download, House, LayoutGrid, Palette, Plus, ScrollText, Settings2, Users, Warehouse } from "lucide-react";
 import { AppShell } from "./components/app-shell";
+import { AttachmentPanel, type AttachmentItem } from "./components/ui/attachment-panel";
+import { Banner } from "./components/ui/banner";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
+import { Checkbox } from "./components/ui/checkbox";
 import {
   type ColumnSettingsField,
   ColumnSettingsModal,
@@ -12,11 +15,31 @@ import {
   usePersistedColumnSettings,
 } from "./components/ui/column-settings";
 import { DemoToolbar } from "./components/ui/demo-toolbar";
+import { DescriptionList } from "./components/ui/description-list";
+import { ExceptionState } from "./components/ui/exception-state";
 import { FloatingAlert, type FloatingAlertInput } from "./components/ui/floating-alert";
+import { HorizontalScrollArea } from "./components/ui/horizontal-scroll-area";
 import { IconActionButton } from "./components/ui/icon-action-button";
+import { ImportLoadingState, ImportSelectStage } from "./components/ui/import-dialog-section";
+import { Input } from "./components/ui/input";
+import { ImportResultPanel } from "./components/ui/import-result-panel";
+import { ListPageMainCard, ListPageToolbar } from "./components/ui/list-page-layout";
 import { Modal } from "./components/ui/modal";
+import { Pagination } from "./components/ui/pagination";
+import { PageHeader } from "./components/ui/page-header";
+import { RadioGroup } from "./components/ui/radio-group";
+import { SegmentedControl } from "./components/ui/segmented-control";
 import { Select } from "./components/ui/select";
+import { Switch } from "./components/ui/switch";
 import { Tabs } from "./components/ui/tabs";
+import { Timeline } from "./components/ui/timeline";
+import { Textarea } from "./components/ui/textarea";
+import {
+  initialExportTaskRecords,
+  type ExportTaskRecord,
+  type ExportTaskStatusFilter,
+  type ExportTaskTarget,
+} from "./data/export-task-center";
 import {
   initialMessageRecords,
   type MessageCategoryId,
@@ -26,7 +49,10 @@ import {
 import { DesignSystemPage } from "./pages/design-system-page";
 import { InventoryFlowQueryPage } from "./pages/inventory-flow-query";
 import { InventoryQueryPage } from "./pages/inventory-query";
+import { ExportTaskCenterPage } from "./pages/export-task-center";
 import { MessageCenterPage } from "./pages/message-center";
+import { ShellCapabilitiesPage } from "./pages/shell-capabilities-page";
+import { SystemStatusPage } from "./pages/system-status-page";
 import {
   approvalLogs,
   lineItems,
@@ -70,6 +96,9 @@ import {
 type WorkspaceTabKey =
   | "home"
   | "design-system"
+  | "shell-capabilities"
+  | "system-status"
+  | "export-task-center"
   | "message-center"
   | "list"
   | "create"
@@ -136,6 +165,21 @@ type ThemeOption = {
 const demoOperator = "当前用户";
 const demoTimestamp = "2026-03-22 16:40:00";
 const themeStorageKey = "prototype-app-theme";
+
+function formatTaskTimestamp(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function buildExportFileName(taskName: string, timestamp: string, format: "xlsx" | "csv") {
+  const compactTime = timestamp.split("-").join("").split(":").join("").split(" ").join("").slice(0, 14);
+  return `${taskName}_${compactTime}.${format}`;
+}
 
 function getSwitchLabel(field: RichField, checked: boolean) {
   if (checked) {
@@ -349,17 +393,12 @@ function SwitchFieldControl({ field }: { field: RichField }) {
   }, [field.checked, field.label]);
 
   return (
-    <button
-      type="button"
-      aria-pressed={checked}
-      className={`switch-control ${checked ? "is-on" : ""}`}
-      onClick={() => setChecked((current) => !current)}
-    >
-      <span className="switch-track">
-        <span className="switch-thumb" />
-      </span>
-      <span>{getSwitchLabel(field, checked)}</span>
-    </button>
+    <Switch
+      checked={checked}
+      checkedLabel={getSwitchLabel(field, true)}
+      uncheckedLabel={getSwitchLabel(field, false)}
+      onCheckedChange={setChecked}
+    />
   );
 }
 
@@ -371,24 +410,19 @@ function renderEditableField(field: RichField) {
   }
 
   if (field.kind === "date") {
-    return <input className="field-control" type="date" defaultValue={field.value} placeholder="请选择" />;
+    return <Input type="date" defaultValue={field.value} placeholder="请选择" />;
   }
 
   if (field.kind === "checkbox") {
     const checkboxLabel = field.controlLabel ?? "已勾选";
-    return (
-      <label className="choice-control" title={checkboxLabel}>
-        <input type="checkbox" defaultChecked={field.checked} />
-        <span>{checkboxLabel}</span>
-      </label>
-    );
+    return <Checkbox defaultChecked={field.checked} label={checkboxLabel} title={checkboxLabel} variant="card" />;
   }
 
   if (field.kind === "switch") {
     return <SwitchFieldControl field={field} />;
   }
 
-  return <input className="field-control" defaultValue={field.value} placeholder="请输入" />;
+  return <Input defaultValue={field.value} placeholder="请输入" />;
 }
 
 function FieldBlock({ field, readOnly = false }: { field: RichField; readOnly?: boolean }) {
@@ -444,6 +478,10 @@ export default function App() {
   const [customerExportRange, setCustomerExportRange] = useState("filtered");
   const [customerExportFormat, setCustomerExportFormat] = useState("xlsx");
   const [customerNotice, setCustomerNotice] = useState<CustomerNotice>(null);
+  const [exportTasks, setExportTasks] = useState<ExportTaskRecord[]>(initialExportTaskRecords);
+  const [exportTaskStatus, setExportTaskStatus] = useState<ExportTaskStatusFilter>("all");
+  const [exportTaskActiveId, setExportTaskActiveId] = useState<string | null>(null);
+  const [systemStatusVariant, setSystemStatusVariant] = useState<"403" | "404" | "session-expired" | "system-maintenance">("403");
   const [messageRecords, setMessageRecords] = useState<MessageRecord[]>(initialMessageRecords);
   const [messageCenterCategory, setMessageCenterCategory] = useState<MessageCategoryId>("all");
   const [messageCenterOnlyUnread, setMessageCenterOnlyUnread] = useState(true);
@@ -531,6 +569,11 @@ export default function App() {
     [customerCurrentCode, customerRecords],
   );
 
+  const exportTaskAttentionCount = useMemo(
+    () => exportTasks.filter((item) => item.status === "processing" || item.status === "failed").length,
+    [exportTasks],
+  );
+
   const notificationUnreadCount = useMemo(
     () => messageRecords.filter((item) => item.unread).length,
     [messageRecords],
@@ -588,6 +631,234 @@ export default function App() {
     });
   }
 
+  function openExportTaskCenter(taskId?: string) {
+    openWorkspaceTab("export-task-center");
+    if (taskId) {
+      setExportTaskActiveId(taskId);
+    }
+  }
+
+  function addExportTask({
+    taskName,
+    sourceLabel,
+    sourceTarget,
+    rangeLabel,
+    format,
+    fieldCount,
+    recordCount,
+  }: {
+    taskName: string;
+    sourceLabel: string;
+    sourceTarget?: ExportTaskTarget;
+    rangeLabel: string;
+    format: "xlsx" | "csv";
+    fieldCount: number;
+    recordCount: number;
+  }) {
+    const createdAt = formatTaskTimestamp();
+    const taskId = `EXP-${Date.now()}`;
+    const fileName = buildExportFileName(taskName, createdAt, format);
+
+    const nextTask: ExportTaskRecord = {
+      id: taskId,
+      taskName,
+      sourceLabel,
+      sourceTarget,
+      rangeLabel,
+      format,
+      fieldCount,
+      recordCount,
+      requestedBy: demoOperator,
+      createdAt,
+      status: "processing",
+      fileName,
+      detailSections: [
+        { label: "任务名称", value: taskName },
+        { label: "来源页面", value: sourceLabel },
+        { label: "导出范围", value: rangeLabel },
+        { label: "文件格式", value: format === "xlsx" ? "Excel (.xlsx)" : "CSV (.csv)" },
+        { label: "记录数", value: `${recordCount}条` },
+        { label: "字段数", value: `${fieldCount}个` },
+        { label: "发起人", value: demoOperator },
+        { label: "创建时间", value: createdAt },
+      ],
+      detailBlocks: [
+        {
+          title: "任务说明",
+          content: `该任务来自“${sourceLabel}”，系统会按当前导出范围和字段配置生成文件，并统一沉淀到导出任务中心。`,
+        },
+        {
+          title: "当前状态",
+          content: "任务已进入后台处理队列，完成后可直接在导出任务中心下载文件；如果生成失败，可在任务详情中重试。",
+        },
+      ],
+    };
+
+    setExportTasks((current) => [nextTask, ...current]);
+    showFloatingAlert({
+      tone: "success",
+      title: "导出任务已创建",
+      description: "请到右上角导出任务中心查看生成进度和下载结果。",
+    });
+
+    window.setTimeout(() => {
+      const finishedAt = formatTaskTimestamp();
+      setExportTasks((current) =>
+        current.map((item) =>
+          item.id === taskId && item.status === "processing"
+            ? {
+                ...item,
+                status: "success",
+                finishedAt,
+                detailBlocks: [
+                  {
+                    title: "任务说明",
+                    content: `该任务来自“${sourceLabel}”，已按${rangeLabel}生成文件，可直接下载使用。`,
+                  },
+                  {
+                    title: "结果状态",
+                    content: "任务已完成，文件已生成。若当前页面筛选条件已经变化，建议重新发起一次最新导出。",
+                  },
+                ],
+              }
+            : item,
+        ),
+      );
+    }, 1200);
+
+    return taskId;
+  }
+
+  function downloadExportTask(task: ExportTaskRecord) {
+    setExportTasks((current) =>
+      current.map((item) =>
+        item.id === task.id
+          ? {
+              ...item,
+              status: "downloaded",
+            }
+          : item,
+      ),
+    );
+    showFloatingAlert({
+      tone: "success",
+      title: "下载任务已触发",
+      description: `${task.fileName}已开始下载，若浏览器拦截请检查下载权限。`,
+    });
+  }
+
+  function retryExportTask(task: ExportTaskRecord) {
+    const createdAt = formatTaskTimestamp();
+    setExportTasks((current) =>
+      current.map((item) =>
+        item.id === task.id
+          ? {
+              ...item,
+              createdAt,
+              status: "processing",
+              finishedAt: undefined,
+              failureReason: undefined,
+              detailSections: item.detailSections.map((section) =>
+                section.label === "创建时间" ? { ...section, value: createdAt } : section,
+              ),
+              detailBlocks: [
+                {
+                  title: "任务说明",
+                  content: `任务已重新提交，系统将基于“${item.sourceLabel}”的最近一次导出配置再次生成文件。`,
+                },
+                {
+                  title: "当前状态",
+                  content: "导出任务正在重新处理，请稍后刷新状态；生成完成后可再次下载。",
+                },
+              ],
+            }
+          : item,
+      ),
+    );
+    showFloatingAlert({
+      tone: "info",
+      title: "已重新提交导出任务",
+      description: "任务已回到处理中状态，完成后可在导出任务中心继续查看。",
+    });
+
+    window.setTimeout(() => {
+      const finishedAt = formatTaskTimestamp();
+      setExportTasks((current) =>
+        current.map((item) =>
+          item.id === task.id && item.status === "processing"
+            ? {
+                ...item,
+                status: "success",
+                finishedAt,
+                detailBlocks: [
+                  {
+                    title: "任务说明",
+                    content: `任务已重新生成完成，来源页面为“${item.sourceLabel}”，可直接下载最新文件。`,
+                  },
+                  {
+                    title: "结果状态",
+                    content: "重试已成功，若后续数据范围变化，建议重新发起新的导出任务。",
+                  },
+                ],
+              }
+            : item,
+        ),
+      );
+    }, 1200);
+  }
+
+  function clearFinishedExportTasks() {
+    const removableIds = exportTasks
+      .filter((item) => item.status === "success" || item.status === "downloaded")
+      .map((item) => item.id);
+
+    if (!removableIds.length) {
+      showFloatingAlert({
+        tone: "info",
+        title: "当前没有可清理的任务",
+        description: "处理中或失败任务会继续保留，便于你后续查看和重试。",
+      });
+      return;
+    }
+
+    setExportTasks((current) => current.filter((item) => !removableIds.includes(item.id)));
+    setExportTaskActiveId((current) => (current && removableIds.includes(current) ? null : current));
+    showFloatingAlert({
+      tone: "success",
+      title: "已清理完成任务",
+      description: `共清理${removableIds.length}条导出记录，处理中和失败任务仍会保留。`,
+    });
+  }
+
+  function openExportTaskSource(task: ExportTaskRecord) {
+    if (task.sourceTarget === "purchase-list") {
+      openWorkspaceTab("list");
+      return;
+    }
+
+    if (task.sourceTarget === "supplier-list") {
+      openSupplierList();
+      return;
+    }
+
+    if (task.sourceTarget === "customer-list") {
+      openCustomerList();
+      return;
+    }
+
+    if (task.sourceTarget === "inventory-query") {
+      openInventoryQuery();
+      return;
+    }
+
+    if (task.sourceTarget === "inventory-flow-query") {
+      openInventoryFlowQuery();
+      return;
+    }
+
+    showPendingAlert("来源页面");
+  }
+
   function markMessagesAsRead(ids: string[]) {
     if (!ids.length) {
       return;
@@ -605,6 +876,7 @@ export default function App() {
     openWorkspaceTab("message-center");
 
     if (messageId) {
+      setMessageCenterOnlyUnread(false);
       setMessageCenterActiveMessageId(messageId);
       markMessagesAsRead([messageId]);
       return;
@@ -613,7 +885,17 @@ export default function App() {
     setMessageCenterActiveMessageId(null);
   }
 
+  function openShellCapabilities() {
+    openWorkspaceTab("shell-capabilities");
+  }
+
+  function openSystemStatus(variant: "403" | "404" | "session-expired" | "system-maintenance" = "403") {
+    setSystemStatusVariant(variant);
+    openWorkspaceTab("system-status");
+  }
+
   function openMessageDetail(id: string) {
+    setMessageCenterOnlyUnread(false);
     setMessageCenterActiveMessageId(id);
     markMessagesAsRead([id]);
   }
@@ -685,6 +967,9 @@ export default function App() {
     const definitions = {
       home: { key: "home", label: "首页", closable: false, icon: House },
       "design-system": { key: "design-system", label: "Design System", closable: true, icon: Palette },
+      "shell-capabilities": { key: "shell-capabilities", label: "壳层能力", closable: true, icon: LayoutGrid },
+      "system-status": { key: "system-status", label: "系统状态", closable: true, icon: AlertTriangle },
+      "export-task-center": { key: "export-task-center", label: "导出任务中心", closable: true, icon: Download },
       "message-center": { key: "message-center", label: "消息中心", closable: true, icon: Bell },
       list: { key: "list", label: "采购订单列表", closable: true },
       create: { key: "create", label: "新建采购订单", closable: true },
@@ -1104,7 +1389,12 @@ export default function App() {
   }
 
   const activeNavItemId =
-    activeTab === "home" || activeTab === "design-system" || activeTab === "message-center"
+    activeTab === "home" ||
+    activeTab === "design-system" ||
+    activeTab === "shell-capabilities" ||
+    activeTab === "system-status" ||
+    activeTab === "export-task-center" ||
+    activeTab === "message-center"
       ? undefined
       : activeTab.startsWith("supplier-")
         ? "supplier"
@@ -1123,8 +1413,20 @@ export default function App() {
       onTabChange={(key) => activateTab(key as WorkspaceTabKey)}
       onTabClose={(key) => closeTab(key as WorkspaceTabKey)}
       activeNavItemId={activeNavItemId}
-      secondaryNavItems={[{ id: "design-system", label: "Design System", icon: Palette }]}
-      activeSecondaryNavId={activeTab === "design-system" ? "design-system" : undefined}
+      secondaryNavItems={[
+        { id: "design-system", label: "Design System", icon: Palette },
+        { id: "shell-capabilities", label: "壳层能力", icon: LayoutGrid },
+        { id: "system-status", label: "系统状态", icon: AlertTriangle },
+      ]}
+      activeSecondaryNavId={
+        activeTab === "design-system"
+          ? "design-system"
+          : activeTab === "shell-capabilities"
+            ? "shell-capabilities"
+            : activeTab === "system-status"
+              ? "system-status"
+              : undefined
+      }
       onNavItemSelect={(key) => {
         if (key === "purchase-order") {
           openWorkspaceTab("list");
@@ -1146,6 +1448,12 @@ export default function App() {
         if (key === "design-system") {
           openWorkspaceTab("design-system");
         }
+        if (key === "shell-capabilities") {
+          openShellCapabilities();
+        }
+        if (key === "system-status") {
+          openSystemStatus();
+        }
       }}
       onProfileAction={() => showPendingAlert("个人中心")}
       onThemeSwitchAction={() => setThemeModalOpen(true)}
@@ -1156,6 +1464,8 @@ export default function App() {
       onNotificationItemOpen={(id) => openMessageCenter("all", id)}
       onNotificationMarkAllRead={markFeedMessagesAsRead}
       onNotificationViewMore={() => openMessageCenter("all")}
+      exportTaskAttentionCount={exportTaskAttentionCount}
+      onExportTaskCenterOpen={() => openExportTaskCenter()}
     >
       {activeTab === "home" && (
         <HomePage
@@ -1165,6 +1475,9 @@ export default function App() {
           onOpenInventoryFlowQuery={openInventoryFlowQuery}
           onOpenSupplierList={openSupplierList}
           onOpenCustomerList={openCustomerList}
+          onOpenExportTaskCenter={() => openExportTaskCenter()}
+          onOpenShellCapabilities={openShellCapabilities}
+          onOpenSystemStatus={() => openSystemStatus()}
           onOpenImport={() => {
             setImportStage("select");
             setImportOpen(true);
@@ -1172,6 +1485,34 @@ export default function App() {
         />
       )}
       {activeTab === "design-system" && <DesignSystemPage />}
+      {activeTab === "shell-capabilities" && (
+        <ShellCapabilitiesPage
+          onOpenMessageCenter={() => openMessageCenter("all")}
+          onOpenMessageDrawer={() => openMessageCenter("all", "msg-002")}
+          onOpenExportTaskCenter={() => openExportTaskCenter()}
+          onOpenSystemStatus={() => openSystemStatus()}
+          onOpenPurchaseList={() => openWorkspaceTab("list")}
+          onOpenThemeModal={() => setThemeModalOpen(true)}
+          onShowAlert={showFloatingAlert}
+        />
+      )}
+      {activeTab === "system-status" && (
+        <SystemStatusPage activeVariant={systemStatusVariant} onVariantChange={setSystemStatusVariant} />
+      )}
+      {activeTab === "export-task-center" && (
+        <ExportTaskCenterPage
+          records={exportTasks}
+          activeStatus={exportTaskStatus}
+          activeTaskId={exportTaskActiveId}
+          onStatusChange={setExportTaskStatus}
+          onOpenTask={setExportTaskActiveId}
+          onCloseTask={() => setExportTaskActiveId(null)}
+          onOpenSource={openExportTaskSource}
+          onDownloadTask={downloadExportTask}
+          onRetryTask={retryExportTask}
+          onClearFinished={clearFinishedExportTasks}
+        />
+      )}
       {activeTab === "message-center" && (
         <MessageCenterPage
           records={messageRecords}
@@ -1192,8 +1533,36 @@ export default function App() {
           onOpenSettings={() => showPendingAlert("消息设置")}
         />
       )}
-      {activeTab === "inventory-query" && <InventoryQueryPage onShowAlert={showFloatingAlert} />}
-      {activeTab === "inventory-flow-query" && <InventoryFlowQueryPage onShowAlert={showFloatingAlert} />}
+      {activeTab === "inventory-query" && (
+        <InventoryQueryPage
+          onCreateExportTask={({ recordCount }) =>
+            addExportTask({
+              taskName: "即时库存查询导出",
+              sourceLabel: "即时库存查询",
+              sourceTarget: "inventory-query",
+              rangeLabel: `当前筛选结果（${recordCount}条）`,
+              format: "xlsx",
+              fieldCount: 12,
+              recordCount,
+            })
+          }
+        />
+      )}
+      {activeTab === "inventory-flow-query" && (
+        <InventoryFlowQueryPage
+          onCreateExportTask={({ recordCount }) =>
+            addExportTask({
+              taskName: "库存流水查询导出",
+              sourceLabel: "库存流水查询",
+              sourceTarget: "inventory-flow-query",
+              rangeLabel: `当前筛选结果（${recordCount}条）`,
+              format: "csv",
+              fieldCount: 12,
+              recordCount,
+            })
+          }
+        />
+      )}
       {activeTab === "list" && (
         <ListPage
           scenario={listScenario}
@@ -1338,6 +1707,23 @@ export default function App() {
         onRangeChange={setExportRange}
         onFormatChange={setExportFormat}
         onClose={() => setExportOpen(false)}
+        onConfirm={() => {
+          setExportOpen(false);
+          addExportTask({
+            taskName: "采购订单列表导出",
+            sourceLabel: "采购订单列表",
+            sourceTarget: "purchase-list",
+            rangeLabel:
+              exportRange === "all"
+                ? "全部数据（245条）"
+                : exportRange === "selected"
+                  ? "仅选中数据（2条）"
+                  : "当前筛选结果（38条）",
+            format: exportFormat as "xlsx" | "csv",
+            fieldCount: 8,
+            recordCount: exportRange === "all" ? 245 : exportRange === "selected" ? 2 : 38,
+          });
+        }}
       />
       <SupplierImportModal
         open={supplierImportOpen}
@@ -1412,10 +1798,19 @@ export default function App() {
         onClose={() => setSupplierExportOpen(false)}
         onConfirm={() => {
           setSupplierExportOpen(false);
-          setSupplierNotice({
-            tone: "success",
-            title: "导出任务已创建",
-            description: `已按${supplierExportFormat.toUpperCase()}格式创建供应商导出任务，请稍后到下载中心查看。`,
+          addExportTask({
+            taskName: "供应商主数据导出",
+            sourceLabel: "供应商主数据",
+            sourceTarget: "supplier-list",
+            rangeLabel:
+              supplierExportRange === "all"
+                ? "全部数据（4条）"
+                : supplierExportRange === "selected"
+                  ? "仅选中数据（2条）"
+                  : "当前筛选结果（2条）",
+            format: supplierExportFormat as "xlsx" | "csv",
+            fieldCount: 10,
+            recordCount: supplierExportRange === "all" ? 4 : 2,
           });
         }}
       />
@@ -1428,10 +1823,19 @@ export default function App() {
         onClose={() => setCustomerExportOpen(false)}
         onConfirm={() => {
           setCustomerExportOpen(false);
-          setCustomerNotice({
-            tone: "success",
-            title: "导出任务已创建",
-            description: `已按${customerExportFormat.toUpperCase()}格式创建客户导出任务，请稍后到下载中心查看。`,
+          addExportTask({
+            taskName: "客户主数据导出",
+            sourceLabel: "客户主数据",
+            sourceTarget: "customer-list",
+            rangeLabel:
+              customerExportRange === "all"
+                ? "全部数据（4条）"
+                : customerExportRange === "selected"
+                  ? "仅选中数据（2条）"
+                  : "当前筛选结果（2条）",
+            format: customerExportFormat as "xlsx" | "csv",
+            fieldCount: 9,
+            recordCount: customerExportRange === "all" ? 4 : 2,
           });
         }}
       />
@@ -1546,6 +1950,9 @@ function HomePage({
   onOpenInventoryFlowQuery,
   onOpenSupplierList,
   onOpenCustomerList,
+  onOpenExportTaskCenter,
+  onOpenShellCapabilities,
+  onOpenSystemStatus,
   onOpenImport,
 }: {
   onOpenList: () => void;
@@ -1554,6 +1961,9 @@ function HomePage({
   onOpenInventoryFlowQuery: () => void;
   onOpenSupplierList: () => void;
   onOpenCustomerList: () => void;
+  onOpenExportTaskCenter: () => void;
+  onOpenShellCapabilities: () => void;
+  onOpenSystemStatus: () => void;
   onOpenImport: () => void;
 }) {
   const shortcuts = [
@@ -1606,6 +2016,27 @@ function HomePage({
       icon: Building2,
       onClick: onOpenSupplierList,
     },
+    {
+      title: "壳层能力",
+      description: "集中查看全局搜索、消息通知、用户菜单、工作台Tab、覆盖式抽屉和顶部轻提示。",
+      action: "打开参考页",
+      icon: LayoutGrid,
+      onClick: onOpenShellCapabilities,
+    },
+    {
+      title: "导出任务中心",
+      description: "统一查看导出任务状态、下载结果和失败重试，不再散落在各页面里单独提示。",
+      action: "打开任务中心",
+      icon: Download,
+      onClick: onOpenExportTaskCenter,
+    },
+    {
+      title: "系统状态",
+      description: "集中查看403、404、登录过期和系统维护等系统状态页基线，用作后续异常页参考。",
+      action: "打开参考页",
+      icon: AlertTriangle,
+      onClick: onOpenSystemStatus,
+    },
   ];
 
   const reminders = [
@@ -1619,7 +2050,7 @@ function HomePage({
     {
       icon: CircleAlert,
       title: "样例范围",
-      desc: "采购订单、即时库存查询、库存流水查询、供应商主数据、客户主数据是5个常见案例，五者共用同一套规范与CSS基线。",
+      desc: "采购订单、即时库存查询、库存流水查询、供应商主数据、客户主数据、壳层能力与消息中心、系统状态页是7个常见案例，七者共用同一套规范与CSS基线。",
     },
   ];
 
@@ -1627,7 +2058,7 @@ function HomePage({
     <div className="space-y-4">
       <PageHeader
         title="首页"
-        description="系统默认着陆页，可快速打开采购订单、即时库存查询、库存流水查询、供应商主数据、客户主数据这5个常见案例。"
+        description="系统默认着陆页，可快速打开采购订单、即时库存查询、库存流水查询、供应商主数据、客户主数据、壳层能力与消息中心、系统状态页这7个常见案例。"
       />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
@@ -1691,26 +2122,6 @@ function HomePage({
           </div>
         </Card>
       </div>
-    </div>
-  );
-}
-
-function PageHeader({
-  title,
-  description,
-  actions,
-}: {
-  title: string;
-  description?: string;
-  actions?: ReactNode;
-}) {
-  return (
-    <div className="page-header">
-      <div>
-        <h1 className="page-title">{title}</h1>
-        {description ? <div className="mt-2 text-small text-text-muted">{description}</div> : null}
-      </div>
-      {actions ? <div className="page-header-actions">{actions}</div> : null}
     </div>
   );
 }
@@ -1789,7 +2200,6 @@ function ListPage({
   const [activeStatusTab, setActiveStatusTab] = useState<PurchaseOrderStatusTab>("全部");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [jumpPage, setJumpPage] = useState("1");
   const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
   const statusTabs: PurchaseOrderStatusTab[] = ["全部", "待提交", "待审核", "已审核", "已取消"];
   const filteredRows = useMemo(
@@ -1812,7 +2222,6 @@ function ListPage({
   useEffect(() => {
     if (page > totalPages) {
       setPage(totalPages);
-      setJumpPage(String(totalPages));
     }
   }, [page, totalPages]);
 
@@ -2035,14 +2444,14 @@ function ListPage({
         }
       />
 
-      <Card title="查询筛选区">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <Card>
+        <div className="query-section-grid 2xl:grid-cols-7">
           {visibleQueryFields.map((field) => (
             <FieldBlock key={field.label} field={field} />
           ))}
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-actions">
-          <div className="flex items-center gap-actions">
+        <div className="query-section-actions">
+          <div className="query-section-action-group">
             {queryFields.length > 12 ? (
               <button
                 type="button"
@@ -2064,11 +2473,12 @@ function ListPage({
       </Card>
 
       {scenario === "no-auth" ? (
-        <Card title="无权限">
-          <div className="rounded-sm border border-danger bg-danger-subtle p-4 text-body text-danger">
-            当前用户无采购订单列表访问权限。请联系管理员开通采购模块菜单和数据范围权限。
-          </div>
-        </Card>
+        <ExceptionState
+          variant="403"
+          description="当前用户无采购订单列表访问权限。请联系管理员开通采购模块菜单和数据范围权限。"
+          primaryAction={<Button variant="primary">联系管理员</Button>}
+          secondaryAction={<Button>返回首页</Button>}
+        />
       ) : null}
 
       {scenario === "loading" ? (
@@ -2082,36 +2492,36 @@ function ListPage({
       ) : null}
 
       {scenario === "empty" ? (
-        <Card title="空数据">
-          <div className="rounded-sm border border-dashed border-border p-8 text-center text-text-muted">
-            当前组织下还没有采购订单，建议从“新增采购订单”开始创建。
-          </div>
-        </Card>
+        <ExceptionState
+          variant="404"
+          title="空数据"
+          description="当前组织下还没有采购订单，建议从“新增采购订单”开始创建。"
+          primaryAction={<Button variant="primary" onClick={onOpenCreate}>新增采购订单</Button>}
+        />
       ) : null}
 
       {scenario === "no-result" ? (
-        <Card title="查询无结果">
-          <div className="rounded-sm border border-dashed border-border p-8 text-center text-text-muted">
-            没有符合当前筛选条件的采购订单，请调整筛选项后重试。
-          </div>
-        </Card>
+        <ExceptionState
+          variant="404"
+          title="查询无结果"
+          description="没有符合当前筛选条件的采购订单，请调整筛选项后重试。"
+          primaryAction={<Button variant="primary">重置条件</Button>}
+          secondaryAction={<Button>重新查询</Button>}
+        />
       ) : null}
 
       {showTable ? (
         <>
           {scenario === "partial-success" ? (
-            <div className="state-banner border-warning bg-warning-subtle text-warning">
-              <div>
-                <div className="font-body-strong">批量审核完成，部分成功</div>
-                <div className="mt-1 text-small text-text-secondary">
-                  已成功审核2单，1单因状态变化失败。失败明细应支持下载或结果弹窗查看。
-                </div>
-              </div>
-              <Button size="sm">查看失败明细</Button>
-            </div>
+            <Banner
+              tone="warning"
+              title="批量审核完成，部分成功"
+              description="已成功审核2单，1单因状态变化失败。失败明细应支持下载或结果弹窗查看。"
+              action={<Button size="sm">查看失败明细</Button>}
+            />
           ) : null}
 
-          <div className="list-page-main-card">
+          <ListPageMainCard>
             <div className="px-4 pt-3">
               <Tabs
                 items={statusTabItems}
@@ -2120,12 +2530,11 @@ function ListPage({
                   setActiveStatusTab(value);
                   setSelectedIds([]);
                   setPage(1);
-                  setJumpPage("1");
                 }}
               />
             </div>
-            <div className="table-toolbar border-b border-border px-4 py-3">
-              <div className="flex items-center gap-actions text-body text-text-secondary">
+            <ListPageToolbar>
+              <div className="list-toolbar-group">
                 <label className="flex items-center gap-control">
                   <input type="checkbox" checked={allCurrentPageSelected} onChange={toggleCurrentPageSelection} />
                   全选
@@ -2149,13 +2558,13 @@ function ListPage({
                   批量导出
                 </Button>
               </div>
-              <div className="flex items-center gap-actions">
+              <div className="list-toolbar-group">
                 <IconActionButton label="列设置" onClick={() => setColumnSettingsOpen(true)}>
                   <Settings2 aria-hidden="true" strokeWidth={1.8} className="h-4 w-4" />
                 </IconActionButton>
               </div>
-            </div>
-            <div className={`overflow-x-auto ${getDensityClassName(purchaseColumnState.density)}`}>
+            </ListPageToolbar>
+            <HorizontalScrollArea viewportClassName={getDensityClassName(purchaseColumnState.density)}>
               <table>
                 <thead>
                   <tr>
@@ -2208,25 +2617,20 @@ function ListPage({
                   ))}
                 </tbody>
               </table>
-            </div>
-            <PaginationBar
+            </HorizontalScrollArea>
+            <Pagination
               currentPage={page}
               totalPages={totalPages}
               totalCount={totalCount}
               pageSize={pageSize}
-              jumpPage={jumpPage}
-              onPageChange={(value) => {
-                setPage(value);
-                setJumpPage(String(value));
-              }}
+              pageSizeOptions={[20, 50, 100]}
+              onPageChange={setPage}
               onPageSizeChange={(value) => {
                 setPageSize(value);
                 setPage(1);
-                setJumpPage("1");
               }}
-              onJumpPageChange={setJumpPage}
             />
-          </div>
+          </ListPageMainCard>
         </>
       ) : null}
       <ColumnSettingsModal
@@ -2238,76 +2642,6 @@ function ListPage({
         onClose={() => setColumnSettingsOpen(false)}
         onApply={applyPurchaseColumnState}
       />
-    </div>
-  );
-}
-
-function PaginationBar({
-  currentPage,
-  totalPages,
-  totalCount,
-  pageSize,
-  jumpPage,
-  onPageChange,
-  onPageSizeChange,
-  onJumpPageChange,
-}: {
-  currentPage: number;
-  totalPages: number;
-  totalCount: number;
-  pageSize: number;
-  jumpPage: string;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
-  onJumpPageChange: (value: string) => void;
-}) {
-  function goToPage(value: string) {
-    const parsed = Number(value);
-    if (Number.isNaN(parsed)) {
-      return;
-    }
-
-    const normalized = Math.min(Math.max(parsed, 1), totalPages);
-    onPageChange(normalized);
-    onJumpPageChange(String(normalized));
-  }
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-actions px-4 py-3 text-small text-text-muted">
-      <span>共{totalCount}条</span>
-      <div className="flex flex-wrap items-center gap-actions">
-        <label className="flex items-center gap-control">
-          <span>每页</span>
-          <Select
-            className="h-input-sm w-[92px] bg-white"
-            value={String(pageSize)}
-            onValueChange={(nextValue) => onPageSizeChange(Number(nextValue))}
-            options={[20, 50, 100].map((size) => ({ label: `${size}条`, value: String(size) }))}
-          />
-        </label>
-        <span>
-          {currentPage}/{totalPages}页
-        </span>
-        <Button size="sm" disabled={currentPage === 1} onClick={() => goToPage(String(Math.max(currentPage - 1, 1)))}>
-          上一页
-        </Button>
-        <Button size="sm" disabled={currentPage === totalPages} onClick={() => goToPage(String(Math.min(currentPage + 1, totalPages)))}>
-          下一页
-        </Button>
-        <div className="flex items-center gap-control">
-          <span>跳转</span>
-          <input
-            className="field-control h-input-sm w-14"
-            inputMode="numeric"
-            placeholder="请输入"
-            value={jumpPage}
-            onChange={(event) => onJumpPageChange(event.target.value.replace(/[^\d]/g, ""))}
-          />
-          <Button size="sm" onClick={() => goToPage(jumpPage || "1")}>
-            确定
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -2375,11 +2709,19 @@ function EditPage({
   const [editableLineItems, setEditableLineItems] = useState<PurchaseLineItemRow[]>(() => createInitialPurchaseLineItems());
   const [nextManualRowIndex, setNextManualRowIndex] = useState(1);
   const [nextImportedRowIndex, setNextImportedRowIndex] = useState(1);
+  const [attachments, setAttachments] = useState<AttachmentItem[]>([
+    { id: "att-001", name: "采购合同.pdf", size: "1.6MB", status: "uploaded" },
+    { id: "att-002", name: "报价单.xlsx", size: "240KB", status: "uploaded" },
+  ]);
 
   useEffect(() => {
     setEditableLineItems(createInitialPurchaseLineItems());
     setNextManualRowIndex(1);
     setNextImportedRowIndex(1);
+    setAttachments([
+      { id: "att-001", name: "采购合同.pdf", size: "1.6MB", status: "uploaded" },
+      { id: "att-002", name: "报价单.xlsx", size: "240KB", status: "uploaded" },
+    ]);
   }, [mode]);
 
   const lineItemSummary = useMemo(() => {
@@ -2461,6 +2803,19 @@ function EditPage({
     });
   }
 
+  function addAttachment() {
+    const nextId = `att-${Date.now()}`;
+    setAttachments((current) => [
+      ...current,
+      { id: nextId, name: `补充附件_${current.length + 1}.pdf`, size: "860KB", status: "uploaded" },
+    ]);
+    onShowAlert({
+      tone: "success",
+      title: "附件已上传",
+      description: "附件已写入当前单据草稿，可继续补充说明或提交审核。",
+    });
+  }
+
   return (
     <div className="space-y-page-block">
       <DemoToolbar label={mode === "create" ? "新建页" : "编辑页"} items={editTabs} value={scenario} onChange={onScenarioChange} />
@@ -2528,7 +2883,7 @@ function EditPage({
           </div>
         }
       >
-        <div className="overflow-x-auto">
+        <HorizontalScrollArea>
           <table>
             <thead>
               <tr>
@@ -2607,7 +2962,7 @@ function EditPage({
               ))}
             </tbody>
           </table>
-        </div>
+        </HorizontalScrollArea>
         <div className="mt-4 flex items-center justify-end gap-6 text-small text-text-secondary">
           <span>数量合计：{lineItemSummary.totalQty}</span>
           <span>金额合计：{lineItemSummary.totalAmount}</span>
@@ -2616,22 +2971,39 @@ function EditPage({
       </Card>
 
       <Card title="其他关键信息卡片">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: "成交金额", value: "17,763.60" },
-            { label: "附件", value: "采购合同.pdf" },
-            { label: "业务备注", value: "优先安排周三早班到货" },
-            { label: "成本口径", value: "财务角色可见" },
-          ].map((field) => (
-            <div key={field.label}>
-              <div className="field-label">{field.label}</div>
+        <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
+          <div className="space-y-4">
+            <DescriptionList
+              columns={2}
+              items={[
+                { label: "成交金额", value: "17,763.60" },
+                { label: "成本口径", value: "财务角色可见" },
+              ]}
+            />
+            <div>
+              <div className="field-label">业务备注</div>
               {readOnly ? (
-                <div className="display-field">{field.value}</div>
+                <div className="display-field">优先安排周三早班到货</div>
               ) : (
-                <input className="field-control" defaultValue={field.value} placeholder="请输入" disabled={readOnly} />
+                <Textarea defaultValue="优先安排周三早班到货" placeholder="请输入" />
               )}
             </div>
-          ))}
+          </div>
+          <div>
+            <div className="field-label">附件</div>
+            <AttachmentPanel
+              items={attachments}
+              onUpload={addAttachment}
+              onDownload={() =>
+                onShowAlert({
+                  tone: "success",
+                  title: "附件下载已触发",
+                  description: "系统已开始下载附件文件，请检查浏览器下载列表。",
+                })
+              }
+              onDelete={(id) => setAttachments((current) => current.filter((item) => item.id !== id))}
+            />
+          </div>
         </div>
       </Card>
     </div>
@@ -2659,11 +3031,12 @@ function DetailPage({
           title="采购订单详情"
           description="详情页必须补齐无权限、只读和上下游失败场景。"
         />
-        <Card title="无权限">
-          <div className="rounded-sm border border-danger bg-danger-subtle p-4 text-danger">
-            当前用户有列表查看权限，但无采购订单详情访问权限。
-          </div>
-        </Card>
+        <ExceptionState
+          variant="403"
+          description="当前用户有列表查看权限，但无采购订单详情访问权限。请联系管理员开通详情页权限后再进入。"
+          primaryAction={<Button variant="primary">联系管理员</Button>}
+          secondaryAction={<Button>返回列表</Button>}
+        />
       </div>
     );
   }
@@ -2713,32 +3086,54 @@ function DetailPage({
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card title="基本信息">
-          <InfoGrid
+          <DescriptionList
             items={[
-              ["采购单号", "PO20260321001"],
-              ["采购组织", "华东采购中心"],
-              ["供应商", "华东生鲜原料供应商有限公司"],
-              ["业务类型", "普通采购"],
-              ["创建人", "张敏"],
-              ["创建时间", "2026-03-21 10:32:11"],
-              ["收货仓库", "上海生鲜仓"],
-              ["采购员", "张敏"],
+              { label: "采购单号", value: "PO20260321001" },
+              { label: "采购组织", value: "华东采购中心" },
+              { label: "供应商", value: "华东生鲜原料供应商有限公司" },
+              { label: "业务类型", value: "普通采购" },
+              { label: "创建人", value: "张敏" },
+              { label: "创建时间", value: "2026-03-21 10:32:11" },
+              { label: "收货仓库", value: "上海生鲜仓" },
+              { label: "采购员", value: "张敏" },
             ]}
           />
         </Card>
         <Card title="财务信息">
-          <InfoGrid
+          <DescriptionList
             items={[
-              ["结算方式", "月结30天"],
-              ["币种", "CNY"],
-              ["金额合计", "128,000.00"],
-              ["税额合计", "14,725.66"],
-              ["已入库金额", "56,800.00"],
-              ["成本口径", "按角色脱敏"],
+              { label: "结算方式", value: "月结30天" },
+              { label: "币种", value: "CNY" },
+              { label: "金额合计", value: "128,000.00" },
+              { label: "税额合计", value: "14,725.66" },
+              { label: "已入库金额", value: "56,800.00" },
+              { label: "成本口径", value: "按角色脱敏" },
             ]}
+            columns={3}
           />
         </Card>
       </div>
+
+      <Card title="附件与备注">
+        <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
+          <AttachmentPanel
+            items={[
+              { id: "detail-att-001", name: "采购合同.pdf", size: "1.6MB", status: "uploaded" },
+              { id: "detail-att-002", name: "补充报价单.xlsx", size: "240KB", status: "uploaded" },
+            ]}
+            readonly
+            onUpload={() => {}}
+            onDownload={() => {}}
+            onDelete={() => {}}
+          />
+          <div className="rounded-md border border-border bg-bg-subtle p-section">
+            <div className="text-body font-section-title text-text-primary">业务备注</div>
+            <div className="mt-2 text-body leading-ui-relaxed text-text-secondary">
+              优先安排周三早班到货。若下游仓库满仓，请先联系仓配确认可预约时段，再继续生成入库通知单。
+            </div>
+          </div>
+        </div>
+      </Card>
 
       <Card title="Tab区">
         <Tabs
@@ -2754,7 +3149,7 @@ function DetailPage({
         <div className="mt-4">
           {activeTab === "items" ? <ItemsTable /> : null}
           {activeTab === "related" ? <RelatedTable /> : null}
-          {activeTab === "logs" ? <OperationLogTable /> : null}
+          {activeTab === "logs" ? <PurchaseTimeline items={operationLogs.map(mapPurchaseOperationLogToTimeline)} /> : null}
           {activeTab === "approvals" ? <ApprovalTable /> : null}
         </div>
       </Card>
@@ -2782,56 +3177,24 @@ function ImportModal({
   return (
     <Modal open={open} title="导入采购订单" onClose={onClose}>
       {stage === "select" ? (
-        <div className="space-y-4">
-          <div className="rounded-sm border border-info bg-info-subtle p-4 text-small text-text-secondary">
-            请先下载模板并按字段格式填写。支持`.xlsx`和`.csv`，单次最多1,000条。
-          </div>
-          <div className="rounded-sm border border-border p-4">
-            <div className="font-body-strong">采购订单导入模板.xlsx</div>
-            <div className="mt-2 text-small text-text-muted">包含头信息、明细信息和字段填写说明。</div>
-            <Button className="mt-3" size="sm">
-              下载模板
-            </Button>
-          </div>
-          <div className="rounded-sm border border-dashed border-border p-8 text-center text-text-muted">
-            拖拽文件到此处，或点击选择文件
-          </div>
-          <div className="rounded-sm border border-border bg-bg-subtle p-4">
-            <div className="mb-3 text-small text-text-muted">结果演示模式</div>
-            <div className="flex gap-2">
-              {[
-                { label: "全部成功", value: "success" },
-                { label: "行级部分失败", value: "partial" },
-                { label: "文件级失败", value: "file-error" },
-              ].map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  onClick={() => onModeChange(item.value as Exclude<ImportStage, "select" | "loading">)}
-                  className={`rounded-sm px-3 py-2 text-small ${
-                    mode === item.value ? "bg-primary-subtle text-primary" : "bg-white text-text-secondary"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button onClick={onClose}>取消</Button>
-            <Button variant="primary" onClick={onStart}>
-              开始导入
-            </Button>
-          </div>
-        </div>
+        <ImportSelectStage
+          intro="请先下载模板并按字段格式填写。支持`.xlsx`和`.csv`，单次最多1,000条。"
+          templateName="采购订单导入模板.xlsx"
+          templateDescription="包含头信息、明细信息和字段填写说明。"
+          modeItems={[
+            { label: "全部成功", value: "success" },
+            { label: "行级部分失败", value: "partial" },
+            { label: "文件级失败", value: "file-error" },
+          ]}
+          modeValue={mode}
+          onModeChange={(value) => onModeChange(value as Exclude<ImportStage, "select" | "loading">)}
+          onClose={onClose}
+          onStart={onStart}
+        />
       ) : null}
 
       {stage === "loading" ? (
-        <div className="space-y-4 py-8 text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-bg-hover border-t-primary" />
-          <div className="text-body text-text-primary">正在导入数据，请稍候…</div>
-          <div className="text-small text-text-muted">系统正在校验文件格式并写入采购订单。</div>
-        </div>
+        <ImportLoadingState title="正在导入数据，请稍候…" description="系统正在校验文件格式并写入采购订单。" />
       ) : null}
 
       {stage === "success" ? (
@@ -2877,6 +3240,7 @@ function ExportModal({
   onRangeChange,
   onFormatChange,
   onClose,
+  onConfirm,
 }: {
   open: boolean;
   exportRange: string;
@@ -2884,6 +3248,7 @@ function ExportModal({
   onRangeChange: (value: string) => void;
   onFormatChange: (value: string) => void;
   onClose: () => void;
+  onConfirm: () => void;
 }) {
   const fields = [
     "采购单号",
@@ -2901,22 +3266,15 @@ function ExportModal({
       <div className="space-y-5">
         <section>
           <div className="mb-3 text-small text-text-muted">导出范围</div>
-          <div className="space-y-2">
-            {[
-              ["all", "全部数据（245条）"],
-              ["filtered", "当前筛选结果（38条）"],
-              ["selected", "仅选中数据（2条）"],
-            ].map(([value, label]) => (
-              <label key={value} className="flex items-center gap-2 text-body">
-                <input
-                  checked={exportRange === value}
-                  onChange={() => onRangeChange(value)}
-                  type="radio"
-                />
-                {label}
-              </label>
-            ))}
-          </div>
+          <RadioGroup
+            value={exportRange}
+            options={[
+              { label: "全部数据（245条）", value: "all" },
+              { label: "当前筛选结果（38条）", value: "filtered" },
+              { label: "仅选中数据（2条）", value: "selected" },
+            ]}
+            onValueChange={onRangeChange}
+          />
         </section>
         <section>
           <div className="mb-3 flex items-center justify-between text-small text-text-muted">
@@ -2925,42 +3283,34 @@ function ExportModal({
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {fields.map((field) => (
-              <label
+              <Checkbox
                 key={field}
-                className="flex items-center gap-2 rounded-sm border border-border bg-white px-3 py-2 text-small text-text-secondary"
-              >
-                <input defaultChecked type="checkbox" />
-                {field}
-              </label>
+                defaultChecked
+                label={field}
+                variant="inline"
+                containerClassName="rounded-sm border border-border bg-white px-3 py-2 text-small text-text-secondary"
+              />
             ))}
           </div>
         </section>
         <section>
           <div className="mb-3 text-small text-text-muted">文件格式</div>
-          <div className="flex gap-3">
-            {[
-              ["xlsx", "Excel (.xlsx)"],
-              ["csv", "CSV (.csv)"],
-            ].map(([value, label]) => (
-              <label
-                key={value}
-                className="flex items-center gap-2 rounded-sm border border-border bg-white px-3 py-2 text-small text-text-secondary"
-              >
-                <input
-                  checked={exportFormat === value}
-                  onChange={() => onFormatChange(value)}
-                  type="radio"
-                />
-                {label}
-              </label>
-            ))}
-          </div>
+          <RadioGroup
+            value={exportFormat}
+            options={[
+              { label: "Excel (.xlsx)", value: "xlsx" },
+              { label: "CSV (.csv)", value: "csv" },
+            ]}
+            direction="horizontal"
+            variant="card"
+            onValueChange={onFormatChange}
+          />
         </section>
         <div className="flex items-center justify-between border-t border-border pt-4">
           <span className="text-small text-text-muted">将导出38条记录，共8个字段。</span>
           <div className="flex gap-2">
             <Button onClick={onClose}>取消</Button>
-            <Button variant="primary" onClick={onClose}>
+            <Button variant="primary" onClick={onConfirm}>
               确认导出
             </Button>
           </div>
@@ -2970,46 +3320,9 @@ function ExportModal({
   );
 }
 
-function Banner({
-  tone,
-  title,
-  description,
-}: {
-  tone: "warning" | "error";
-  title: string;
-  description: string;
-}) {
-  const toneClass =
-    tone === "warning"
-      ? "border-warning bg-warning-subtle text-warning"
-      : "border-danger bg-danger-subtle text-danger";
-
-  return (
-    <div className={`state-banner ${toneClass}`}>
-      <div>
-        <div className="font-body-strong">{title}</div>
-        <div className="mt-1 text-small text-text-secondary">{description}</div>
-      </div>
-    </div>
-  );
-}
-
-function InfoGrid({ items }: { items: Array<[string, string]> }) {
-  return (
-    <div className="description-grid md:grid-cols-2 xl:grid-cols-4">
-      {items.map(([label, value]) => (
-        <div key={label} className="description-item">
-          <div className="description-label">{label}</div>
-          <div className="description-value">{value}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function ItemsTable() {
   return (
-    <div className="overflow-x-auto">
+    <HorizontalScrollArea>
       <table>
         <thead>
           <tr>
@@ -3040,13 +3353,13 @@ function ItemsTable() {
           ))}
         </tbody>
       </table>
-    </div>
+    </HorizontalScrollArea>
   );
 }
 
 function RelatedTable() {
   return (
-    <div className="overflow-x-auto">
+    <HorizontalScrollArea>
       <table>
         <thead>
           <tr>
@@ -3075,35 +3388,31 @@ function RelatedTable() {
           ))}
         </tbody>
       </table>
-    </div>
+    </HorizontalScrollArea>
   );
 }
 
-function OperationLogTable() {
-  return (
-    <div className="overflow-x-auto">
-      <table>
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>操作人</th>
-            <th>动作</th>
-            <th>结果</th>
-          </tr>
-        </thead>
-        <tbody>
-          {operationLogs.map((item) => (
-            <tr key={`${item.time}-${item.action}`}>
-              <td>{item.time}</td>
-              <td>{item.actor}</td>
-              <td>{item.action}</td>
-              <td>{item.result}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+function mapPurchaseOperationLogToTimeline(item: (typeof operationLogs)[number]) {
+  return {
+    id: `${item.time}-${item.action}`,
+    time: item.time,
+    title: `${item.actor} · ${item.action}`,
+    description: `处理结果：${item.result}`,
+    tone:
+      item.result === "成功"
+        ? ("success" as const)
+        : item.result.includes("失败")
+          ? ("error" as const)
+          : ("default" as const),
+  };
+}
+
+function PurchaseTimeline({
+  items,
+}: {
+  items: Array<ReturnType<typeof mapPurchaseOperationLogToTimeline>>;
+}) {
+  return <Timeline items={items} />;
 }
 
 function ApprovalTable() {
@@ -3148,74 +3457,38 @@ function ImportResult({
   onReset: () => void;
   onClose: () => void;
 }) {
-  const toneClass =
-    tone === "success"
-      ? "border-success bg-success-subtle text-success"
-      : tone === "warning"
-        ? "border-warning bg-warning-subtle text-warning"
-        : "border-danger bg-danger-subtle text-danger";
-
   return (
-    <div className="space-y-4">
-      <div className={`state-banner ${toneClass}`}>
-        <div>
-          <div className="font-body-strong">{title}</div>
-          <div className="mt-1 text-small text-text-secondary">{description}</div>
-        </div>
-      </div>
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="info-kpi">
-          <div className="text-page-title font-page-title text-text-primary">52</div>
-          <div className="mt-2 text-small text-text-muted">导入总数</div>
-        </div>
-        <div className="info-kpi">
-          <div className="text-page-title font-page-title text-success">48</div>
-          <div className="mt-2 text-small text-text-muted">成功写入</div>
-        </div>
-        <div className="info-kpi">
-          <div className="text-page-title font-page-title text-danger">{showDetail ? "4" : "0"}</div>
-          <div className="mt-2 text-small text-text-muted">失败跳过</div>
-        </div>
-      </div>
-      {showDetail ? (
-        <div className="rounded-sm border border-border">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <span className="font-body-strong text-text-primary">失败明细</span>
-            <Button size="sm">下载失败数据</Button>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>行号</th>
-                <th>字段</th>
-                <th>填写值</th>
-                <th>错误原因</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>18</td>
-                <td>供应商</td>
-                <td>空白</td>
-                <td>供应商不能为空</td>
-              </tr>
-              <tr>
-                <td>32</td>
-                <td>采购组织</td>
-                <td>华北测试组织</td>
-                <td>当前用户无该组织导入权限</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-      <div className="flex justify-end gap-2">
-        <Button onClick={onReset}>重新导入</Button>
-        <Button variant="primary" onClick={onClose}>
-          完成
-        </Button>
-      </div>
-    </div>
+    <ImportResultPanel
+      tone={tone}
+      title={title}
+      description={description}
+      metrics={[
+        { value: "52", label: "导入总数" },
+        { value: "48", label: "成功写入", tone: "success" },
+        { value: showDetail ? "4" : "0", label: "失败跳过", tone: "error" },
+      ]}
+      detailColumns={
+        showDetail
+          ? [
+              { key: "rowNo", label: "行号" },
+              { key: "field", label: "字段" },
+              { key: "value", label: "填写值" },
+              { key: "reason", label: "错误原因" },
+            ]
+          : []
+      }
+      detailRows={
+        showDetail
+          ? [
+              { id: "18-supplier", rowNo: "18", field: "供应商", value: "空白", reason: "供应商不能为空" },
+              { id: "32-org", rowNo: "32", field: "采购组织", value: "华北测试组织", reason: "当前用户无该组织导入权限" },
+            ]
+          : []
+      }
+      detailAction={showDetail ? <Button size="sm">下载失败数据</Button> : undefined}
+      onReset={onReset}
+      onClose={onClose}
+    />
   );
 }
 

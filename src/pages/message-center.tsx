@@ -1,14 +1,15 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   Settings2,
-  X,
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import { DateRangePicker } from "../components/ui/date-range-picker";
+import { Drawer } from "../components/ui/drawer";
+import { ExceptionState } from "../components/ui/exception-state";
 import {
   messageCenterCategories,
   type MessageCategoryId,
@@ -44,6 +45,11 @@ export function MessageCenterPage({
   onOpenRelated: (record: MessageRecord) => void;
   onOpenSettings: () => void;
 }) {
+  const [dateRange, setDateRange] = useState({
+    start: "2026-01-22",
+    end: "2026-03-23",
+  });
+
   const categories = useMemo(
     () =>
       messageCenterCategories.map((category) => ({
@@ -67,9 +73,17 @@ export function MessageCenterPage({
           return false;
         }
 
+        const recordDate = item.time.slice(0, 10);
+        if (dateRange.start && recordDate < dateRange.start) {
+          return false;
+        }
+        if (dateRange.end && recordDate > dateRange.end) {
+          return false;
+        }
+
         return true;
       }),
-    [activeCategory, onlyUnread, records],
+    [activeCategory, dateRange.end, dateRange.start, onlyUnread, records],
   );
 
   const activeMessage = useMemo(
@@ -159,13 +173,7 @@ export function MessageCenterPage({
           <div className="min-w-0 flex-1">
             <div className="flex h-[56px] items-center border-b border-border bg-white px-section">
               <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  className="inline-flex h-input-md items-center gap-2 rounded-sm border border-border bg-white px-3 text-body text-text-secondary transition hover:bg-bg-hover"
-                >
-                  <CalendarDays aria-hidden="true" className="h-4 w-4" />
-                  <span>2026-01-22 - 2026-03-23</span>
-                </button>
+                <DateRangePicker value={dateRange} onChange={setDateRange} />
 
                 <Button size="sm" onClick={onMarkSelectedRead} disabled={selectedUnreadCount === 0}>
                   标记已读
@@ -229,47 +237,47 @@ export function MessageCenterPage({
               </table>
 
               {filteredRecords.length === 0 ? (
-                <div className="flex min-h-[320px] items-center justify-center text-body text-text-muted">
-                  当前筛选条件下暂无消息。
+                <div className="p-section">
+                  <ExceptionState
+                    variant="404"
+                    title="暂无消息"
+                    description="当前筛选条件下暂无消息，请切换分类、日期范围或关闭“只有未读”后再试。"
+                    primaryAction={<Button variant="primary" onClick={() => onOnlyUnreadChange(false)}>关闭仅看未读</Button>}
+                    secondaryAction={<Button onClick={() => onCategoryChange("all")}>查看全部消息</Button>}
+                  />
                 </div>
               ) : null}
             </div>
           </div>
 
-          {activeMessage ? (
-            <>
-              <div className="absolute inset-y-0 right-0 left-[184px] z-10 bg-black/8" onClick={onCloseMessage} />
-              <aside className="absolute inset-y-0 right-0 z-20 flex w-[min(42vw,720px)] min-w-[480px] max-w-[var(--drawer-width-lg)] flex-col border-l border-border bg-white shadow-md">
-                <div className="flex h-[56px] items-center justify-between border-b border-border px-section">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={!prevMessageId}
-                      onClick={() => prevMessageId && onOpenMessage(prevMessageId)}
-                      className="inline-flex h-btn-sm w-btn-sm items-center justify-center rounded-sm border border-border bg-white text-text-secondary transition hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!nextMessageId}
-                      onClick={() => nextMessageId && onOpenMessage(nextMessageId)}
-                      className="inline-flex h-btn-sm w-btn-sm items-center justify-center rounded-sm border border-border bg-white text-text-secondary transition hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <ChevronRight aria-hidden="true" className="h-4 w-4" />
-                    </button>
-                    <span className="tabular-nums text-small text-text-muted">{activeMessage.time}</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={onCloseMessage}
-                    className="inline-flex h-btn-sm w-btn-sm items-center justify-center rounded-sm text-text-muted transition hover:bg-bg-hover hover:text-text-primary"
-                  >
-                    <X aria-hidden="true" className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="min-h-0 flex-1 overflow-auto px-drawer py-drawer">
+        </div>
+      </section>
+      {activeMessage ? (
+        <Drawer
+          open={Boolean(activeMessage)}
+          onClose={onCloseMessage}
+          headerExtra={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={!prevMessageId}
+                onClick={() => prevMessageId && onOpenMessage(prevMessageId)}
+                className="inline-flex h-btn-sm w-btn-sm items-center justify-center rounded-sm border border-border bg-white text-text-secondary transition hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                disabled={!nextMessageId}
+                onClick={() => nextMessageId && onOpenMessage(nextMessageId)}
+                className="inline-flex h-btn-sm w-btn-sm items-center justify-center rounded-sm border border-border bg-white text-text-secondary transition hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ChevronRight aria-hidden="true" className="h-4 w-4" />
+              </button>
+              <span className="tabular-nums text-small text-text-muted">{activeMessage.time}</span>
+            </div>
+          }
+        >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
@@ -326,12 +334,8 @@ export function MessageCenterPage({
                       </Button>
                     ) : null}
                   </div>
-                </div>
-              </aside>
-            </>
-          ) : null}
-        </div>
-      </section>
+        </Drawer>
+      ) : null}
     </div>
   );
 }

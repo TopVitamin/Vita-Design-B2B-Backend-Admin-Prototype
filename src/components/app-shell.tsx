@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ClipboardList,
   Database,
+  Download,
   Languages,
   LogOut,
   House,
@@ -24,6 +25,7 @@ import {
   Workflow,
   X,
 } from "lucide-react";
+import { SegmentedControl } from "./ui/segmented-control";
 
 type NavIconName =
   | "purchase"
@@ -180,6 +182,8 @@ export function AppShell({
   onNotificationItemOpen,
   onNotificationMarkAllRead,
   onNotificationViewMore,
+  exportTaskAttentionCount = 0,
+  onExportTaskCenterOpen,
   children,
 }: {
   tabs: Array<{ key: string; label: string; closable?: boolean; icon?: LucideIcon }>;
@@ -200,6 +204,8 @@ export function AppShell({
   onNotificationItemOpen?: (id: string) => void;
   onNotificationMarkAllRead?: (feedTab: NotificationFeedTab) => void;
   onNotificationViewMore?: () => void;
+  exportTaskAttentionCount?: number;
+  onExportTaskCenterOpen?: () => void;
   children: ReactNode;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -363,9 +369,9 @@ export function AppShell({
   }
 
   return (
-    <div className="page-shell flex min-h-screen">
+    <div className="page-shell flex h-screen overflow-hidden">
       <aside
-        className={`hidden shrink-0 border-r border-border bg-white transition-all duration-200 lg:flex lg:flex-col ${
+        className={`relative z-20 hidden shrink-0 border-r border-border bg-white shadow-[1px_0_0_rgba(16,24,40,0.03)] transition-all duration-200 lg:flex lg:flex-col ${
           sidebarCollapsed ? "w-sidebar-collapsed" : "w-sidebar"
         }`}
       >
@@ -383,9 +389,9 @@ export function AppShell({
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-4">
+        <div className="flex-1 overflow-y-auto px-2 py-3">
           {sidebarCollapsed ? (
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-2">
               {navigationTree.map((section) => {
                 const active = section.groups.some((group) =>
                   group.items.some((item) => item.id === activeNavItemId),
@@ -405,7 +411,7 @@ export function AppShell({
                   </button>
                 );
               })}
-              {secondaryNavItems?.length ? <div className="w-6 border-t border-border pt-3" /> : null}
+              {secondaryNavItems?.length ? <div className="w-6 border-t border-border pt-2" /> : null}
               {secondaryNavItems?.map((item) => {
                 const active = item.id === activeSecondaryNavId;
                 const Icon = item.icon;
@@ -427,35 +433,35 @@ export function AppShell({
               })}
             </div>
           ) : (
-            <div className="space-y-4 text-body text-text-secondary">
+            <div className="space-y-2 text-body text-text-secondary">
               {navigationTree.map((section) => {
                 const sectionExpanded = expandedSections[section.id];
                 return (
-                  <div key={section.id} className="space-y-2">
+                  <div key={section.id} className="space-y-1">
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between rounded-sm px-2 py-2 text-left transition hover:bg-bg-hover"
+                      className="flex w-full items-center justify-between rounded-sm px-2 py-2.5 text-left transition hover:bg-bg-hover"
                       onClick={() => toggleSection(section.id)}
                     >
-                      <span className="flex items-center gap-control text-body text-text-primary">
-                        <SidebarIcon name={section.icon} className="h-4 w-4 text-text-muted" />
-                        <span>{section.label}</span>
+                      <span className="flex items-center gap-2.5 text-body-lg font-body-strong text-text-primary">
+                        <SidebarIcon name={section.icon} className="h-4 w-4 text-text-primary" />
+                        <span className="leading-ui-tight">{section.label}</span>
                       </span>
                       <ChevronIcon expanded={sectionExpanded} />
                     </button>
 
                     {sectionExpanded ? (
-                      <div className="space-y-2 pl-2">
+                      <div className="space-y-1 pl-2">
                         {section.groups.map((group) => {
                           const groupExpanded = expandedGroups[group.id];
                           return (
                             <div key={group.id} className="space-y-1">
                               <button
                                 type="button"
-                                className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left transition hover:bg-bg-hover"
+                                className="flex w-full items-center justify-between rounded-sm px-2 py-2 text-left transition hover:bg-bg-hover"
                                 onClick={() => toggleGroup(group.id)}
                               >
-                                <span className="text-small text-text-secondary">{group.label}</span>
+                                <span className="text-body font-body-strong leading-ui-tight text-text-secondary">{group.label}</span>
                                 <ChevronIcon expanded={groupExpanded} small />
                               </button>
 
@@ -486,7 +492,7 @@ export function AppShell({
                                               disabled ? "text-text-disabled" : active ? "text-primary" : "text-text-muted"
                                             }`}
                                           />
-                                          <span>{item.label}</span>
+                                          <span className="text-body leading-ui-tight">{item.label}</span>
                                         </span>
                                         {item.statusLabel ? (
                                           <span className="shrink-0 rounded-full border border-border bg-bg-subtle px-2 py-0.5 text-mini text-text-muted">
@@ -508,7 +514,7 @@ export function AppShell({
               })}
 
               {secondaryNavItems?.length ? (
-                <div className="border-t border-border pt-4">
+                <div className="border-t border-border pt-3">
                   <div className="space-y-1">
                     {secondaryNavItems.map((item) => {
                       const active = item.id === activeSecondaryNavId;
@@ -553,10 +559,10 @@ export function AppShell({
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="bg-white">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="relative z-20 shrink-0 bg-white/96 shadow-[0_6px_18px_rgba(16,24,40,0.04)] backdrop-blur supports-[backdrop-filter]:bg-white/88">
           <div className="workspace-tab-strip">
-            <div className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto pr-4">
+            <div className="flex h-full min-w-0 flex-1 items-center gap-4 overflow-x-auto pr-4">
               {tabs.map((tab) => {
                 const active = tab.key === currentTab;
                 const TabIcon = tab.icon;
@@ -569,7 +575,7 @@ export function AppShell({
                     >
                       <span className="workspace-tab-label">
                         {TabIcon ? <TabIcon aria-hidden="true" strokeWidth={1.8} className="workspace-tab-icon" /> : null}
-                        <span>{tab.label}</span>
+                        <span className="workspace-tab-text">{tab.label}</span>
                       </span>
                     </button>
                     {tab.closable ? (
@@ -587,9 +593,9 @@ export function AppShell({
               })}
             </div>
 
-            <div className="flex shrink-0 items-center gap-actions py-1">
-              <div ref={menuSearchRef} className="relative hidden md:flex">
-                <div className="relative">
+            <div className="flex h-full shrink-0 items-center gap-actions">
+              <div ref={menuSearchRef} className="relative hidden h-full items-center md:flex">
+                <div className="relative flex h-full items-center">
                   <Search
                     aria-hidden="true"
                     className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
@@ -675,7 +681,26 @@ export function AppShell({
                 ) : null}
               </div>
 
-              <div ref={notificationPanelRef} className="relative">
+              <button
+                type="button"
+                aria-label="打开导出任务中心"
+                onClick={() => {
+                  setMenuSearchOpen(false);
+                  setNotificationPanelOpen(false);
+                  setUserMenuOpen(false);
+                  onExportTaskCenterOpen?.();
+                }}
+                className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-border bg-white text-text-secondary transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-subtle focus-visible:ring-offset-2 hover:bg-bg-hover"
+              >
+                <Download aria-hidden="true" className="h-4 w-4" />
+                {exportTaskAttentionCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-warning px-1 text-[10px] leading-4 text-white">
+                    {exportTaskAttentionCount > 99 ? "99+" : exportTaskAttentionCount}
+                  </span>
+                ) : null}
+              </button>
+
+              <div ref={notificationPanelRef} className="relative flex h-full items-center">
                 <button
                   type="button"
                   aria-haspopup="dialog"
@@ -699,28 +724,15 @@ export function AppShell({
 
                 {notificationPanelOpen ? (
                   <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-[420px] overflow-hidden rounded-md border border-border bg-white shadow-md">
-                    <div className="flex items-center justify-between border-b border-border px-section py-section-tight">
-                      <div className="flex items-center gap-2">
-                        {notificationTabs.map((tab) => {
-                          const active = tab.id === activeNotificationTab;
-                          const count = notificationPreviewItems.filter(
-                            (item) => item.feedTab === tab.id && item.unread,
-                          ).length;
-                          return (
-                            <button
-                              key={tab.id}
-                              type="button"
-                              onClick={() => setActiveNotificationTab(tab.id)}
-                              className={`rounded-full px-3 py-1.5 text-body transition ${
-                                active ? "bg-primary-subtle text-primary" : "text-text-secondary hover:bg-bg-hover"
-                              }`}
-                            >
-                              {tab.label}({count})
-                            </button>
-                          );
-                        })}
-                      </div>
-
+                    <div className="flex items-center justify-between border-b border-border px-section py-2">
+                      <SegmentedControl
+                        items={notificationTabs.map((tab) => ({
+                          value: tab.id,
+                          label: `${tab.label}(${notificationPreviewItems.filter((item) => item.feedTab === tab.id && item.unread).length})`,
+                        }))}
+                        value={activeNotificationTab}
+                        onChange={setActiveNotificationTab}
+                      />
                     </div>
 
                     <div className="max-h-[420px] overflow-auto">
@@ -781,7 +793,7 @@ export function AppShell({
                 ) : null}
               </div>
 
-              <div ref={userMenuRef} className="relative">
+              <div ref={userMenuRef} className="relative flex h-full items-center">
                 <button
                   type="button"
                   aria-haspopup="menu"
@@ -841,7 +853,7 @@ export function AppShell({
             </div>
           </div>
         </header>
-        <div className="page-content flex-1">{children}</div>
+        <div className="page-content flex-1 min-h-0 overflow-y-auto bg-bg-page">{children}</div>
       </main>
     </div>
   );

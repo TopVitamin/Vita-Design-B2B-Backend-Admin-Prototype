@@ -9,9 +9,14 @@ import {
   getDensityClassName,
   usePersistedColumnSettings,
 } from "../components/ui/column-settings";
+import { ExceptionState } from "../components/ui/exception-state";
+import { HorizontalScrollArea } from "../components/ui/horizontal-scroll-area";
 import { DemoToolbar } from "../components/ui/demo-toolbar";
-import type { FloatingAlertInput } from "../components/ui/floating-alert";
 import { IconActionButton } from "../components/ui/icon-action-button";
+import { Input } from "../components/ui/input";
+import { ListPageMainCard, ListPageToolbar } from "../components/ui/list-page-layout";
+import { Pagination } from "../components/ui/pagination";
+import { PageHeader } from "../components/ui/page-header";
 import { Select } from "../components/ui/select";
 import { inventoryQueryRecords, type InventoryQueryRecord } from "../data/inventory-query";
 
@@ -53,11 +58,7 @@ const defaultFilters: InventoryQueryFilters = {
   categorySmall: "全部",
 };
 
-const pageSizeOptions = [
-  { label: "20条", value: "20" },
-  { label: "50条", value: "50" },
-  { label: "100条", value: "100" },
-];
+const pageSizeOptions = [20, 50, 100];
 
 const inventoryQueryTabs = [
   { label: "正常", value: "normal" },
@@ -82,102 +83,15 @@ function includesText(source: string, target: string) {
   return source.toLowerCase().includes(target.trim().toLowerCase());
 }
 
-function PageHeader({
-  title,
-  description,
-  actions,
-}: {
-  title: string;
-  description?: string;
-  actions?: ReactNode;
-}) {
-  return (
-    <div className="page-header">
-      <div>
-        <h1 className="page-title">{title}</h1>
-        {description ? <div className="mt-2 text-small text-text-muted">{description}</div> : null}
-      </div>
-      {actions ? <div className="page-header-actions">{actions}</div> : null}
-    </div>
-  );
-}
-
-function PaginationBar({
-  currentPage,
-  totalPages,
-  totalCount,
-  pageSize,
-  jumpPage,
-  onPageChange,
-  onPageSizeChange,
-  onJumpPageChange,
-}: {
-  currentPage: number;
-  totalPages: number;
-  totalCount: number;
-  pageSize: number;
-  jumpPage: string;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
-  onJumpPageChange: (value: string) => void;
-}) {
-  function goToPage(value: string) {
-    const parsed = Number(value);
-    if (Number.isNaN(parsed)) {
-      return;
-    }
-
-    const normalized = Math.min(Math.max(parsed, 1), totalPages);
-    onPageChange(normalized);
-    onJumpPageChange(String(normalized));
-  }
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-actions border-t border-border px-4 py-3 text-small text-text-muted">
-      <span>共{totalCount}条</span>
-      <div className="flex flex-wrap items-center gap-actions">
-        <label className="flex items-center gap-control">
-          <span>每页</span>
-          <Select
-            className="h-input-sm w-[92px] bg-white"
-            value={String(pageSize)}
-            onValueChange={(nextValue) => onPageSizeChange(Number(nextValue))}
-            options={pageSizeOptions}
-          />
-        </label>
-        <span>
-          {currentPage}/{totalPages}页
-        </span>
-        <Button size="sm" disabled={currentPage === 1} onClick={() => goToPage(String(Math.max(currentPage - 1, 1)))}>
-          上一页
-        </Button>
-        <Button size="sm" disabled={currentPage === totalPages} onClick={() => goToPage(String(Math.min(currentPage + 1, totalPages)))}>
-          下一页
-        </Button>
-        <label className="flex items-center gap-control">
-          <span>跳转</span>
-          <input
-            className="field-control h-input-sm w-[72px]"
-            value={jumpPage}
-            onChange={(event) => onJumpPageChange(event.target.value)}
-            onBlur={(event) => goToPage(event.target.value)}
-          />
-        </label>
-      </div>
-    </div>
-  );
-}
-
 export function InventoryQueryPage({
-  onShowAlert,
+  onCreateExportTask,
 }: {
-  onShowAlert: (notice: FloatingAlertInput) => void;
+  onCreateExportTask: (payload: { recordCount: number }) => void;
 }) {
   const [draftFilters, setDraftFilters] = useState<InventoryQueryFilters>(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState<InventoryQueryFilters>(defaultFilters);
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);
-  const [jumpPage, setJumpPage] = useState("1");
   const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
   const [scenario, setScenario] = useState<InventoryQueryScenario>("normal");
 
@@ -301,7 +215,6 @@ export function InventoryQueryPage({
   function handleQuery() {
     setAppliedFilters(draftFilters);
     setPage(1);
-    setJumpPage("1");
     const nextRows = inventoryQueryRecords.filter((row) => {
       if (draftFilters.owner !== "全部" && row.owner !== draftFilters.owner) {
         return false;
@@ -332,15 +245,12 @@ export function InventoryQueryPage({
     setDraftFilters(defaultFilters);
     setAppliedFilters(defaultFilters);
     setPage(1);
-    setJumpPage("1");
     setScenario("normal");
   }
 
   function handleExport() {
-    onShowAlert({
-      tone: "success",
-      title: "导出任务已创建",
-      description: `已按当前筛选条件创建导出任务，共${filteredRows.length}条库存记录。`,
+    onCreateExportTask({
+      recordCount: filteredRows.length,
     });
   }
 
@@ -421,8 +331,8 @@ export function InventoryQueryPage({
         }
       />
 
-      <Card title="查询筛选区">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <Card>
+        <div className="query-section-grid">
           <div>
             <div className="field-label">货主</div>
             <Select value={draftFilters.owner} onValueChange={(value) => updateFilter("owner", value)} options={ownerOptions} />
@@ -433,30 +343,15 @@ export function InventoryQueryPage({
           </div>
           <div>
             <div className="field-label">商品编码</div>
-            <input
-              className="field-control"
-              value={draftFilters.itemCode}
-              onChange={(event) => updateFilter("itemCode", event.target.value)}
-              placeholder="请输入"
-            />
+            <Input value={draftFilters.itemCode} onChange={(event) => updateFilter("itemCode", event.target.value)} placeholder="请输入" />
           </div>
           <div>
             <div className="field-label">商品条码</div>
-            <input
-              className="field-control"
-              value={draftFilters.barcode}
-              onChange={(event) => updateFilter("barcode", event.target.value)}
-              placeholder="请输入"
-            />
+            <Input value={draftFilters.barcode} onChange={(event) => updateFilter("barcode", event.target.value)} placeholder="请输入" />
           </div>
           <div>
             <div className="field-label">商品名称</div>
-            <input
-              className="field-control"
-              value={draftFilters.itemName}
-              onChange={(event) => updateFilter("itemName", event.target.value)}
-              placeholder="请输入"
-            />
+            <Input value={draftFilters.itemName} onChange={(event) => updateFilter("itemName", event.target.value)} placeholder="请输入" />
           </div>
           <div>
             <div className="field-label">商品大类</div>
@@ -483,7 +378,7 @@ export function InventoryQueryPage({
             />
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-actions">
+        <div className="query-section-actions">
           <Button onClick={handleReset}>重置</Button>
           <Button variant="primary" onClick={handleQuery}>
             查询
@@ -492,11 +387,12 @@ export function InventoryQueryPage({
       </Card>
 
       {scenario === "no-auth" ? (
-        <Card title="无权限">
-          <div className="rounded-sm border border-danger bg-danger-subtle p-4 text-body text-danger">
-            当前用户无即时库存查询权限。请联系管理员开通库存查询菜单和数据范围权限。
-          </div>
-        </Card>
+        <ExceptionState
+          variant="403"
+          description="当前用户无即时库存查询权限。请联系管理员开通库存查询菜单和数据范围权限。"
+          primaryAction={<Button variant="primary">联系管理员</Button>}
+          secondaryAction={<Button>返回首页</Button>}
+        />
       ) : null}
 
       {scenario === "loading" ? (
@@ -510,15 +406,17 @@ export function InventoryQueryPage({
       ) : null}
 
       {scenario === "no-result" ? (
-        <Card title="查询结果">
-          <div className="rounded-sm border border-dashed border-border p-8 text-center text-text-muted">
-            当前筛选条件下没有命中库存记录，请调整货主、仓库或商品条件后重试。
-          </div>
-        </Card>
+        <ExceptionState
+          variant="404"
+          title="查询无结果"
+          description="当前筛选条件下没有命中库存记录，请调整货主、仓库或商品条件后重试。"
+          primaryAction={<Button variant="primary" onClick={handleReset}>重置条件</Button>}
+          secondaryAction={<Button onClick={handleQuery}>重新查询</Button>}
+        />
       ) : null}
 
       {scenario === "normal" && filteredRows.length > 0 ? (
-        <div className="list-page-main-card">
+        <ListPageMainCard>
           <div className="border-b border-border bg-bg-subtle px-4 py-3">
             <div className="grid gap-3 md:grid-cols-4">
               <div className="rounded-sm border border-border bg-white px-3 py-3">
@@ -539,14 +437,14 @@ export function InventoryQueryPage({
               </div>
             </div>
           </div>
-          <div className="table-toolbar justify-end border-b border-border px-4 py-3">
-            <div className="flex items-center gap-actions">
+          <ListPageToolbar className="justify-end">
+            <div className="list-toolbar-group">
               <IconActionButton label="列设置" onClick={() => setColumnSettingsOpen(true)}>
                 <Settings2 aria-hidden="true" strokeWidth={1.8} className="h-4 w-4" />
               </IconActionButton>
             </div>
-          </div>
-          <div className={`overflow-x-auto ${getDensityClassName(inventoryColumnState.density)}`}>
+          </ListPageToolbar>
+          <HorizontalScrollArea viewportClassName={getDensityClassName(inventoryColumnState.density)}>
             <table>
               <thead>
                 <tr>
@@ -597,25 +495,21 @@ export function InventoryQueryPage({
                 ))}
               </tbody>
             </table>
-          </div>
-          <PaginationBar
+          </HorizontalScrollArea>
+          <Pagination
             currentPage={normalizedPage}
             totalPages={totalPages}
             totalCount={filteredRows.length}
             pageSize={pageSize}
-            jumpPage={jumpPage}
-            onPageChange={(value) => {
-              setPage(value);
-              setJumpPage(String(value));
-            }}
+            pageSizeOptions={pageSizeOptions}
+            showTopBorder
+            onPageChange={setPage}
             onPageSizeChange={(value) => {
               setPageSize(value);
               setPage(1);
-              setJumpPage("1");
             }}
-            onJumpPageChange={setJumpPage}
           />
-        </div>
+        </ListPageMainCard>
       ) : null}
 
       <ColumnSettingsModal

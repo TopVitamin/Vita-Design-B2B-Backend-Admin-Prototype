@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Settings2 } from "lucide-react";
+import { Banner } from "../components/ui/banner";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   type ColumnSettingsField,
   ColumnSettingsModal,
@@ -11,10 +13,23 @@ import {
   usePersistedColumnSettings,
 } from "../components/ui/column-settings";
 import { DemoToolbar } from "../components/ui/demo-toolbar";
+import { DescriptionList } from "../components/ui/description-list";
+import { ExceptionState } from "../components/ui/exception-state";
+import { HorizontalScrollArea } from "../components/ui/horizontal-scroll-area";
 import { IconActionButton } from "../components/ui/icon-action-button";
+import { ImportLoadingState, ImportSelectStage } from "../components/ui/import-dialog-section";
+import { Input } from "../components/ui/input";
+import { ImportResultPanel } from "../components/ui/import-result-panel";
+import { ListPageMainCard, ListPageToolbar } from "../components/ui/list-page-layout";
 import { Modal } from "../components/ui/modal";
+import { Pagination } from "../components/ui/pagination";
+import { PageHeader } from "../components/ui/page-header";
+import { RadioGroup } from "../components/ui/radio-group";
+import { SegmentedControl } from "../components/ui/segmented-control";
 import { Select } from "../components/ui/select";
+import { Textarea } from "../components/ui/textarea";
 import { Tabs } from "../components/ui/tabs";
+import { Timeline } from "../components/ui/timeline";
 import {
   customerExportFields,
   customerImportFailures,
@@ -196,16 +211,6 @@ function formatAddress(address: CustomerAddress) {
   return `${address.countryCode} ${address.state} ${address.city} ${address.district} ${address.town} ${address.detail}`.trim();
 }
 
-function noticeToneClass(tone: NonNullable<CustomerNotice>["tone"]) {
-  if (tone === "success") {
-    return "border-success bg-success-subtle text-success";
-  }
-  if (tone === "warning") {
-    return "border-warning bg-warning-subtle text-warning";
-  }
-  return "border-danger bg-danger-subtle text-danger";
-}
-
 function StatusNotice({
   notice,
   action,
@@ -217,122 +222,11 @@ function StatusNotice({
     return null;
   }
 
-  return (
-    <div className={`state-banner ${noticeToneClass(notice.tone)}`}>
-      <div>
-        <div className="font-body-strong">{notice.title}</div>
-        <div className="mt-1 text-small text-text-secondary">{notice.description}</div>
-      </div>
-      {action}
-    </div>
-  );
-}
-
-function PageHeader({
-  title,
-  description,
-  actions,
-}: {
-  title: string;
-  description?: string;
-  actions?: ReactNode;
-}) {
-  return (
-    <div className="page-header">
-      <div>
-        <h1 className="page-title">{title}</h1>
-        {description ? <div className="mt-2 text-small text-text-muted">{description}</div> : null}
-      </div>
-      {actions ? <div className="page-header-actions">{actions}</div> : null}
-    </div>
-  );
-}
-
-function PaginationBar({
-  currentPage,
-  totalPages,
-  totalCount,
-  pageSize,
-  jumpPage,
-  onPageChange,
-  onPageSizeChange,
-  onJumpPageChange,
-}: {
-  currentPage: number;
-  totalPages: number;
-  totalCount: number;
-  pageSize: number;
-  jumpPage: string;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
-  onJumpPageChange: (value: string) => void;
-}) {
-  function goToPage(value: string) {
-    const parsed = Number(value);
-    if (Number.isNaN(parsed)) {
-      return;
-    }
-
-    const normalized = Math.min(Math.max(parsed, 1), totalPages || 1);
-    onPageChange(normalized);
-    onJumpPageChange(String(normalized));
-  }
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-actions px-4 py-3 text-small text-text-muted">
-      <span>共{totalCount}条</span>
-      <div className="flex flex-wrap items-center gap-actions">
-        <label className="flex items-center gap-control">
-          <span>每页</span>
-          <Select
-            className="h-input-sm w-[92px] bg-white"
-            value={String(pageSize)}
-            onValueChange={(nextValue) => onPageSizeChange(Number(nextValue))}
-            options={[10, 20, 50].map((size) => ({ label: `${size}条`, value: String(size) }))}
-          />
-        </label>
-        <span>
-          {currentPage}/{totalPages || 1}页
-        </span>
-        <Button size="sm" disabled={currentPage === 1} onClick={() => onPageChange(Math.max(currentPage - 1, 1))}>
-          上一页
-        </Button>
-        <Button
-          size="sm"
-          disabled={currentPage === totalPages || totalPages === 0}
-          onClick={() => onPageChange(Math.min(currentPage + 1, totalPages || 1))}
-        >
-          下一页
-        </Button>
-        <div className="flex items-center gap-control">
-          <span>跳转</span>
-          <input
-            className="field-control h-input-sm w-14"
-            inputMode="numeric"
-            placeholder="请输入"
-            value={jumpPage}
-            onChange={(event) => onJumpPageChange(event.target.value.replace(/[^\d]/g, ""))}
-          />
-          <Button size="sm" onClick={() => goToPage(jumpPage || "1")}>
-            确定
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+  return <Banner tone={notice.tone} title={notice.title} description={notice.description} action={action} />;
 }
 
 function InfoGrid({ items }: { items: Array<[string, string]> }) {
-  return (
-    <div className="description-grid md:grid-cols-2 xl:grid-cols-4">
-      {items.map(([label, value]) => (
-        <div key={label} className="description-item">
-          <div className="description-label">{label}</div>
-          <div className="description-value">{value}</div>
-        </div>
-      ))}
-    </div>
-  );
+  return <DescriptionList items={items.map(([label, value]) => ({ label, value }))} />;
 }
 
 function statusBadge(status: CustomerRecord["status"]) {
@@ -388,19 +282,9 @@ function FormField({
       ) : kind === "select" ? (
         <Select className="bg-white" value={value} options={options} placeholder={resolvedPlaceholder} onValueChange={onChange} />
       ) : kind === "textarea" ? (
-        <textarea
-          className="field-control min-h-[96px] py-3"
-          value={value}
-          placeholder={resolvedPlaceholder}
-          onChange={(event) => onChange?.(event.target.value)}
-        />
+        <Textarea value={value} placeholder={resolvedPlaceholder} onChange={(event) => onChange?.(event.target.value)} />
       ) : (
-        <input
-          className="field-control"
-          value={value}
-          placeholder={resolvedPlaceholder}
-          onChange={(event) => onChange?.(event.target.value)}
-        />
+        <Input value={value} placeholder={resolvedPlaceholder} onChange={(event) => onChange?.(event.target.value)} />
       )}
     </div>
   );
@@ -503,7 +387,6 @@ export function CustomerListPage({
   const [activeFilters, setActiveFilters] = useState<CustomerListFilters>(defaultListFilters);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [jumpPage, setJumpPage] = useState("1");
   const [selectedCodes, setSelectedCodes] = useState<string[]>(records.slice(0, 2).map((item) => item.code));
   const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
 
@@ -599,7 +482,6 @@ export function CustomerListPage({
   function handleQuery() {
     setActiveFilters(draftFilters);
     setPage(1);
-    setJumpPage("1");
 
     const nextRows = records.filter((row) => {
       const matchesCode = !draftFilters.code || row.code.toLowerCase().includes(draftFilters.code.toLowerCase());
@@ -630,7 +512,6 @@ export function CustomerListPage({
     setDraftFilters(defaultListFilters);
     setActiveFilters(defaultListFilters);
     setPage(1);
-    setJumpPage("1");
     onScenarioChange("normal");
   }
 
@@ -770,8 +651,8 @@ export function CustomerListPage({
         }
       />
 
-      <Card title="查询筛选区">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <Card>
+        <div className="query-section-grid">
           <FormField
             label="客户编码"
             value={draftFilters.code}
@@ -839,7 +720,7 @@ export function CustomerListPage({
             onChange={(value) => setDraftFilters((current) => ({ ...current, currency: value }))}
           />
         </div>
-        <div className="mt-4 flex justify-end gap-actions">
+        <div className="query-section-actions">
           <Button variant="secondary" onClick={handleReset}>
             重置
           </Button>
@@ -850,11 +731,12 @@ export function CustomerListPage({
       </Card>
 
       {scenario === "no-auth" ? (
-        <Card title="无权限">
-          <div className="rounded-sm border border-danger bg-danger-subtle p-4 text-body text-danger">
-            当前用户没有客户主数据访问权限，需开通主数据菜单及集团数据范围后方可进入。
-          </div>
-        </Card>
+        <ExceptionState
+          variant="403"
+          description="当前用户没有客户主数据访问权限，需开通主数据菜单及集团数据范围后方可进入。"
+          primaryAction={<Button variant="primary">联系管理员</Button>}
+          secondaryAction={<Button>返回首页</Button>}
+        />
       ) : null}
 
       {scenario === "loading" ? (
@@ -868,19 +750,22 @@ export function CustomerListPage({
       ) : null}
 
       {scenario === "empty" ? (
-        <Card title="空数据">
-          <div className="rounded-sm border border-dashed border-border p-8 text-center text-text-muted">
-            当前集团下还没有客户资料，请从“新增客户”开始创建主数据。
-          </div>
-        </Card>
+        <ExceptionState
+          variant="404"
+          title="空数据"
+          description="当前集团下还没有客户资料，请从“新增客户”开始创建主数据。"
+          primaryAction={<Button variant="primary" onClick={onOpenCreate}>新增客户</Button>}
+        />
       ) : null}
 
       {scenario === "no-result" ? (
-        <Card title="查询无结果">
-          <div className="rounded-sm border border-dashed border-border p-8 text-center text-text-muted">
-            没有符合当前筛选条件的客户，请调整条件后重试。
-          </div>
-        </Card>
+        <ExceptionState
+          variant="404"
+          title="查询无结果"
+          description="没有符合当前筛选条件的客户，请调整条件后重试。"
+          primaryAction={<Button variant="primary" onClick={handleReset}>重置条件</Button>}
+          secondaryAction={<Button onClick={handleQuery}>重新查询</Button>}
+        />
       ) : null}
 
       {showTable ? (
@@ -896,9 +781,9 @@ export function CustomerListPage({
             />
           ) : null}
 
-          <div className="list-page-main-card">
-            <div className="table-toolbar border-b border-border px-4 py-3">
-              <div className="flex items-center gap-actions text-body text-text-secondary">
+          <ListPageMainCard>
+            <ListPageToolbar>
+              <div className="list-toolbar-group">
                 <label className="flex items-center gap-control">
                   <input type="checkbox" checked={allCurrentPageSelected} onChange={toggleCurrentPageSelection} />
                   全选
@@ -908,14 +793,14 @@ export function CustomerListPage({
                   批量导出
                 </Button>
               </div>
-              <div className="flex items-center gap-actions">
+              <div className="list-toolbar-group">
                 <IconActionButton label="列设置" onClick={() => setColumnSettingsOpen(true)}>
                   <Settings2 aria-hidden="true" strokeWidth={1.8} className="h-4 w-4" />
                 </IconActionButton>
               </div>
-            </div>
+            </ListPageToolbar>
 
-            <div className={`overflow-x-auto ${getDensityClassName(customerColumnState.density)}`}>
+            <HorizontalScrollArea viewportClassName={getDensityClassName(customerColumnState.density)}>
               <table>
                 <thead>
                   <tr>
@@ -964,26 +849,21 @@ export function CustomerListPage({
                   ))}
                 </tbody>
               </table>
-            </div>
+            </HorizontalScrollArea>
 
-            <PaginationBar
+            <Pagination
               currentPage={page}
               totalPages={totalPages}
               totalCount={filteredRows.length}
               pageSize={pageSize}
-              jumpPage={jumpPage}
-              onPageChange={(value) => {
-                setPage(value);
-                setJumpPage(String(value));
-              }}
+              pageSizeOptions={[10, 20, 50]}
+              onPageChange={setPage}
               onPageSizeChange={(value) => {
                 setPageSize(value);
                 setPage(1);
-                setJumpPage("1");
               }}
-              onJumpPageChange={setJumpPage}
             />
-          </div>
+          </ListPageMainCard>
         </>
       ) : null}
 
@@ -1301,11 +1181,12 @@ export function CustomerDetailPage({
       <div className="space-y-page-block">
         <DemoToolbar label="详情页" items={customerDetailTabs} value={scenario} onChange={onScenarioChange} />
         <PageHeader title="客户详情" description="详情页必须覆盖无权限和推送异常状态。" />
-        <Card title="无权限">
-          <div className="rounded-sm border border-danger bg-danger-subtle p-4 text-body text-danger">
-            当前用户可以看列表，但没有客户详情访问权限。
-          </div>
-        </Card>
+        <ExceptionState
+          variant="403"
+          description="当前用户可以看客户列表，但没有客户详情访问权限。"
+          primaryAction={<Button variant="primary">联系管理员</Button>}
+          secondaryAction={<Button>返回列表</Button>}
+        />
       </div>
     );
   }
@@ -1529,59 +1410,30 @@ function ApprovalTable({ items }: { items: CustomerApprovalLog[] }) {
 
 function OperationLogTable({ items }: { items: CustomerOperationLog[] }) {
   return (
-    <div className="overflow-x-auto">
-      <table>
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>操作人</th>
-            <th>动作</th>
-            <th>结果</th>
-            <th>备注</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={`${item.time}-${item.action}`}>
-              <td>{item.time}</td>
-              <td>{item.actor}</td>
-              <td>{item.action}</td>
-              <td>{item.result}</td>
-              <td>{item.remark ?? "-"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Timeline
+      items={items.map((item) => ({
+        id: `${item.time}-${item.action}`,
+        time: item.time,
+        title: `${item.actor} · ${item.action}`,
+        description: item.remark ?? `处理结果：${item.result}`,
+        tone: item.result === "成功" ? "success" : item.result.includes("失败") ? "error" : "default",
+        meta: `处理结果：${item.result}`,
+      }))}
+    />
   );
 }
 
 function ChangeLogTable({ items }: { items: CustomerChangeLog[] }) {
   return (
-    <div className="overflow-x-auto">
-      <table>
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>操作人</th>
-            <th>字段</th>
-            <th>变更前</th>
-            <th>变更后</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={`${item.time}-${item.field}`}>
-              <td>{item.time}</td>
-              <td>{item.actor}</td>
-              <td>{item.field}</td>
-              <td>{item.before}</td>
-              <td>{item.after}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Timeline
+      items={items.map((item) => ({
+        id: `${item.time}-${item.field}`,
+        time: item.time,
+        title: `${item.actor}调整了${item.field}`,
+        description: `变更前：${item.before}；变更后：${item.after}`,
+        tone: "info",
+      }))}
+    />
   );
 }
 
@@ -1607,56 +1459,27 @@ export function CustomerImportModal({
   return (
     <Modal open={open} title="导入客户主数据" onClose={onClose}>
       {stage === "select" ? (
-        <div className="space-y-4">
-          <div className="rounded-sm border border-info bg-info-subtle p-4 text-small text-text-secondary">
-            建议先下载模板，并按“客户分组、客户类型可识别、统一社会信用代码完整、结算币别已开通”的规则填写。
-          </div>
-          <div className="rounded-sm border border-border p-4">
-            <div className="font-body-strong">客户主数据导入模板.xlsx</div>
-            <div className="mt-2 text-small text-text-muted">包含基本信息、联系信息、地址信息与制单信息字段说明。</div>
-            <Button className="mt-3" size="sm">
-              下载模板
-            </Button>
-          </div>
-          <div className="rounded-sm border border-dashed border-border p-8 text-center text-text-muted">
-            拖拽文件到此处，或点击选择文件
-          </div>
-          <div className="rounded-sm border border-border bg-bg-subtle p-4">
-            <div className="mb-3 text-small text-text-muted">结果演示模式</div>
-            <div className="flex gap-2">
-              {[
-                { label: "全部成功", value: "success" },
-                { label: "部分失败", value: "partial" },
-                { label: "文件失败", value: "file-error" },
-              ].map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  onClick={() => onModeChange(item.value as Exclude<CustomerImportStage, "select" | "loading">)}
-                  className={`rounded-sm px-3 py-2 text-small ${
-                    mode === item.value ? "bg-primary-subtle text-primary" : "bg-white text-text-secondary"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button onClick={onClose}>取消</Button>
-            <Button variant="primary" onClick={onStart}>
-              开始导入
-            </Button>
-          </div>
-        </div>
+        <ImportSelectStage
+          intro="建议先下载模板，并按“客户分组、客户类型可识别、统一社会信用代码完整、结算币别已开通”的规则填写。"
+          templateName="客户主数据导入模板.xlsx"
+          templateDescription="包含基本信息、联系信息、地址信息与制单信息字段说明。"
+          modeItems={[
+            { label: "全部成功", value: "success" },
+            { label: "部分失败", value: "partial" },
+            { label: "文件失败", value: "file-error" },
+          ]}
+          modeValue={mode}
+          onModeChange={(value) => onModeChange(value as Exclude<CustomerImportStage, "select" | "loading">)}
+          onClose={onClose}
+          onStart={onStart}
+        />
       ) : null}
 
       {stage === "loading" ? (
-        <div className="space-y-4 py-8 text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-bg-hover border-t-primary" />
-          <div className="text-body text-text-primary">正在导入客户数据，请稍候…</div>
-          <div className="text-small text-text-muted">系统会校验信用代码、客户类型映射、集团权限与结算币别配置。</div>
-        </div>
+        <ImportLoadingState
+          title="正在导入客户数据，请稍候…"
+          description="系统会校验信用代码、客户类型映射、集团权限与结算币别配置。"
+        />
       ) : null}
 
       {stage === "success" ? (
@@ -1711,59 +1534,40 @@ function CustomerImportResult({
   onClose: () => void;
 }) {
   return (
-    <div className="space-y-4">
-      <StatusNotice notice={{ tone, title, description }} />
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="info-kpi">
-          <div className="text-page-title font-page-title text-text-primary">28</div>
-          <div className="mt-2 text-small text-text-muted">导入总数</div>
-        </div>
-        <div className="info-kpi">
-          <div className="text-page-title font-page-title text-success">{showDetail ? "25" : "28"}</div>
-          <div className="mt-2 text-small text-text-muted">成功写入</div>
-        </div>
-        <div className="info-kpi">
-          <div className="text-page-title font-page-title text-danger">{showDetail ? "3" : "0"}</div>
-          <div className="mt-2 text-small text-text-muted">失败跳过</div>
-        </div>
-      </div>
-
-      {showDetail ? (
-        <div className="rounded-sm border border-border">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <span className="font-body-strong text-text-primary">失败明细</span>
-            <Button size="sm">下载失败数据</Button>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>行号</th>
-                <th>字段</th>
-                <th>填写值</th>
-                <th>错误原因</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customerImportFailures.map((item) => (
-                <tr key={`${item.rowNo}-${item.field}`}>
-                  <td>{item.rowNo}</td>
-                  <td>{item.field}</td>
-                  <td>{item.value}</td>
-                  <td>{item.reason}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
-      <div className="flex justify-end gap-2">
-        <Button onClick={onReset}>重新导入</Button>
-        <Button variant="primary" onClick={onClose}>
-          完成
-        </Button>
-      </div>
-    </div>
+    <ImportResultPanel
+      tone={tone}
+      title={title}
+      description={description}
+      metrics={[
+        { value: "28", label: "导入总数" },
+        { value: showDetail ? "25" : "28", label: "成功写入", tone: "success" },
+        { value: showDetail ? "3" : "0", label: "失败跳过", tone: "error" },
+      ]}
+      detailColumns={
+        showDetail
+          ? [
+              { key: "rowNo", label: "行号" },
+              { key: "field", label: "字段" },
+              { key: "value", label: "填写值" },
+              { key: "reason", label: "错误原因" },
+            ]
+          : []
+      }
+      detailRows={
+        showDetail
+          ? customerImportFailures.map((item) => ({
+              id: `${item.rowNo}-${item.field}`,
+              rowNo: item.rowNo,
+              field: item.field,
+              value: item.value,
+              reason: item.reason,
+            }))
+          : []
+      }
+      detailAction={showDetail ? <Button size="sm">下载失败数据</Button> : undefined}
+      onReset={onReset}
+      onClose={onClose}
+    />
   );
 }
 
@@ -1789,18 +1593,15 @@ export function CustomerExportModal({
       <div className="space-y-5">
         <section>
           <div className="mb-3 text-small text-text-muted">导出范围</div>
-          <div className="space-y-2">
-            {[
-              ["all", "全部数据（当前共4条）"],
-              ["filtered", "当前筛选结果（2条）"],
-              ["selected", "仅选中数据（2条）"],
-            ].map(([value, label]) => (
-              <label key={value} className="flex items-center gap-2 text-body">
-                <input checked={exportRange === value} onChange={() => onRangeChange(value)} type="radio" />
-                {label}
-              </label>
-            ))}
-          </div>
+          <RadioGroup
+            value={exportRange}
+            options={[
+              { label: "全部数据（当前共4条）", value: "all" },
+              { label: "当前筛选结果（2条）", value: "filtered" },
+              { label: "仅选中数据（2条）", value: "selected" },
+            ]}
+            onValueChange={onRangeChange}
+          />
         </section>
 
         <section>
@@ -1810,33 +1611,29 @@ export function CustomerExportModal({
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {customerExportFields.map((field) => (
-              <label
+              <Checkbox
                 key={field}
-                className="flex items-center gap-2 rounded-sm border border-border bg-white px-3 py-2 text-small text-text-secondary"
-              >
-                <input defaultChecked type="checkbox" />
-                {field}
-              </label>
+                defaultChecked
+                label={field}
+                variant="inline"
+                containerClassName="rounded-sm border border-border bg-white px-3 py-2 text-small text-text-secondary"
+              />
             ))}
           </div>
         </section>
 
         <section>
           <div className="mb-3 text-small text-text-muted">文件格式</div>
-          <div className="flex gap-3">
-            {[
-              ["xlsx", "Excel (.xlsx)"],
-              ["csv", "CSV (.csv)"],
-            ].map(([value, label]) => (
-              <label
-                key={value}
-                className="flex items-center gap-2 rounded-sm border border-border bg-white px-3 py-2 text-small text-text-secondary"
-              >
-                <input checked={exportFormat === value} onChange={() => onFormatChange(value)} type="radio" />
-                {label}
-              </label>
-            ))}
-          </div>
+          <RadioGroup
+            value={exportFormat}
+            options={[
+              { label: "Excel (.xlsx)", value: "xlsx" },
+              { label: "CSV (.csv)", value: "csv" },
+            ]}
+            direction="horizontal"
+            variant="card"
+            onValueChange={onFormatChange}
+          />
         </section>
 
         <div className="flex items-center justify-between border-t border-border pt-4">

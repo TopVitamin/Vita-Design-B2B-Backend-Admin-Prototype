@@ -64,7 +64,7 @@ export const designSystemPrinciples = [
   },
   {
     title: "高密度后台",
-    description: "默认白底、32px控件、40px工作台Tab和紧凑留白，服务ERP/WMS一类信息密集后台。",
+    description: "默认白底、32px控件、48px工作台Tab和紧凑留白，服务ERP/WMS一类信息密集后台。",
   },
   {
     title: "可移植基线",
@@ -209,7 +209,7 @@ export const designSystemDensityRules: DesignSystemRule[] = [
   {
     label: "工作台Tab高度",
     token: "--tabs-height",
-    description: "顶部Tab默认40px，保持后台精致密度而不是浏览器式大页签。",
+    description: "顶部Tab默认48px，保持后台精致密度而不是浏览器式大页签。",
     preview: "height",
     previewToken: "--tabs-height",
   },
@@ -226,6 +226,16 @@ export const designSystemDensityRules: DesignSystemRule[] = [
     description: "Label与控件上下间距默认6px，不拉大表单节奏。",
     preview: "gap",
     previewToken: "--field-label-gap",
+  },
+  {
+    label: "查询区节奏",
+    token: "query-section-grid / query-section-actions",
+    description: "查询区优先控制为横向16px、纵向12px的节奏，按钮区和筛选控件区分层但不拉开过大间距。",
+  },
+  {
+    label: "工具条密度",
+    token: "table-toolbar / list-toolbar-group",
+    description: "列表工具条优先保持48px到52px的紧凑密度，左侧批量操作和右侧弱操作之间留出清晰但克制的分组距离。",
   },
 ];
 
@@ -254,6 +264,11 @@ export const designSystemSurfaceRules: DesignSystemRule[] = [
 
 export const designSystemControlRules: DesignSystemRule[] = [
   {
+    label: "基础控件族",
+    token: "input / textarea / checkbox / radio group / switch",
+    description: "表单基础控件优先复用共享组件，不再在业务页里长期直接拼原生标签和散落class。",
+  },
+  {
     label: "按钮层级",
     token: "primary / secondary / ghost / danger",
     description: "一个页面默认只保留一个最突出主操作，其他按钮回到次级层级。",
@@ -265,17 +280,62 @@ export const designSystemControlRules: DesignSystemRule[] = [
   },
   {
     label: "Select实现",
-    token: "自定义下拉触发器 + 选项面板",
-    description: "后台原型默认不直接依赖浏览器原生下拉面板，避免箭头贴边和菜单缩进漂移。",
+    token: "自定义下拉触发器 + 选项面板 + 自动翻转",
+    description: "后台原型默认不直接依赖浏览器原生下拉面板；触发器和选项统一单行截断，靠近底边时自动向上展开，避免裁切和页面抖动。",
   },
   {
     label: "占位文案基线",
     token: "input / textarea = 请输入；select / date / time = 请选择",
     description: "业务表单、查询区、表格内嵌编辑控件统一使用简洁默认placeholder，不留空白占位。",
   },
+  {
+    label: "切换器分层",
+    token: "workspace tab / status tab / content tab / segmented control / chip",
+    description: "切换器必须先按语义分层，再决定样式，不允许所有地方只用一种Tab或胶囊切换。",
+  },
+  {
+    label: "分段控件口径",
+    token: "capsule active item / transparent outer shell / 32px height",
+    description: "分段控件允许胶囊激活项，但外层不再套灰底边框壳，并优先与32px输入框和按钮保持同高。",
+  },
+  {
+    label: "筛选Chip",
+    token: "filter chip / single-select | multi-select",
+    description: "轻量快速筛选优先使用FilterChip，视觉上比Tab更轻，不承担主导航职责。",
+  },
+  {
+    label: "日期区间控件",
+    token: "trigger + popover + date inputs + presets",
+    description: "DateRangePicker默认采用触发器 + 轻量弹层 + 原生日期输入，不依赖第三方日期库。",
+  },
+  {
+    label: "附件与上传",
+    token: "attachment panel / upload trigger / list / retry",
+    description: "附件能力默认抽成统一组件，编辑态和详情态共用，不再用文本字段冒充附件。",
+  },
+  {
+    label: "基础控件族",
+    token: "input / textarea / checkbox / radio group / switch",
+    description: "表单控件优先复用共享基础组件，统一placeholder、禁用态、错误态和交互密度，不再每页各写一套原生标签样式。",
+  },
+  {
+    label: "Select交互口径",
+    token: "single-line truncate / smart placement / portal overlay",
+    description: "Select触发器和选项统一单行截断；靠近视口边缘时自动翻转，并脱离父容器裁切，避免下拉被挡住或打开时页面抖动。",
+  },
+  {
+    label: "筛选Chip",
+    token: "filter chip / light filter",
+    description: "FilterChip用于轻量快速过滤，不冒充Tab，不做厚重胶囊，支持单选或多选条件收口。",
+  },
 ];
 
 export const designSystemDataRules: DesignSystemRule[] = [
+  {
+    label: "列表页骨架",
+    token: "page header / list-page-main-card / table-toolbar / pagination",
+    description: "列表页优先复用共享页头、主卡片和工具条骨架，业务差异留在工具条内容、统计区和表格列定义里。",
+  },
   {
     label: "表格承载",
     token: "table / list-page-main-card",
@@ -300,6 +360,11 @@ export const designSystemDataRules: DesignSystemRule[] = [
     label: "查询报表页工具条",
     token: "query report toolbar / export / column-settings",
     description: "纯查询报表页默认不额外放无意义刷新，也不补一行装饰性的共X条记录；工具条右侧保留导出、列设置等弱次级操作即可。",
+  },
+  {
+    label: "列表页骨架",
+    token: "page header / list-page-main-card / table-toolbar / pagination",
+    description: "列表页优先复用统一页头、主卡片和工具条骨架，把差异留给Tab、统计区、批量操作和表格列定义，不从零拼装外层结构。",
   },
   {
     label: "宽表格策略",
@@ -330,9 +395,29 @@ export const designSystemShellRules: DesignSystemRule[] = [
     description: "分页保持精简，Modal右上角关闭使用线性icon，不用文字按钮。",
   },
   {
+    label: "导入弹窗骨架",
+    token: "template card / upload dropzone / import loading / import result",
+    description: "导入弹窗的选择阶段、加载阶段和结果阶段优先复用共享骨架，不再让采购、客户、供应商各自维护一套结构。",
+  },
+  {
+    label: "分段控件",
+    token: "segmented control / capsule active item",
+    description: "模式切换和轻过滤切换允许使用胶囊分段，但外层容器不做厚重灰底边框壳；系统级工具条行高优先保持紧凑。",
+  },
+  {
+    label: "查看态抽屉",
+    token: "drawer / fixed overlay / full-screen mask",
+    description: "查看态详情默认使用共享Drawer，遮罩覆盖整个视口，不通过分栏挤压主体内容。",
+  },
+  {
     label: "样例调试面板",
     token: "floating demo toolbar / draggable",
     description: "演示控件必须和业务按钮分离，默认以弱化悬浮面板提供，并支持鼠标拖动，避免遮挡宽表格和详情内容。",
+  },
+  {
+    label: "导入弹窗骨架",
+    token: "import dialog / template card / upload dropzone / result scaffold",
+    description: "导入弹窗优先复用选择阶段、加载阶段和结果阶段骨架；业务页只保留文案、统计值和失败明细数据，不再各自搭一套容器结构。",
   },
 ];
 
@@ -356,6 +441,21 @@ export const designSystemFeedbackRules: DesignSystemRule[] = [
     label: "错误提示",
     token: "--danger / --border-danger",
     description: "错误信息优先就近出现，和对应控件或区域形成明确关联。",
+  },
+  {
+    label: "导入结果卡",
+    token: "import result metrics / tabular-nums / aligned cards",
+    description: "导入结果区的统计卡优先使用等宽数字、统一字号层级和同高卡片，先强调数量，再承载标签说明。",
+  },
+  {
+    label: "异常页组件",
+    token: "exception-state / 403 | 404 | session-expired | system-maintenance",
+    description: "系统状态页和页内异常态优先复用统一ExceptionState组件，而不是各写一套版式。",
+  },
+  {
+    label: "时间线",
+    token: "timeline / operation log / change log",
+    description: "操作日志和变更轨迹优先使用Timeline承载，审批流图后续再独立补充。",
   },
 ];
 
