@@ -17,7 +17,17 @@ import { Input } from "../components/ui/input";
 import { ListPageMainCard, ListPageToolbar } from "../components/ui/list-page-layout";
 import { Pagination } from "../components/ui/pagination";
 import { PageHeader } from "../components/ui/page-header";
+import { getVisibleQuerySectionItems, hasCollapsedQuerySectionItems } from "../components/ui/query-section";
 import { Select } from "../components/ui/select";
+import {
+  getNextTableSortState,
+  sortTableRows,
+  TableHeaderCell,
+  type TableSortConfig,
+  type TableSortState,
+  type TableSortType,
+  useTableColumnResize,
+} from "../components/ui/table-interactions";
 import { inventoryFlowRecords, type InventoryFlowActionType, type InventoryFlowRecord } from "../data/inventory-flow-query";
 
 type InventoryFlowFilters = {
@@ -36,6 +46,21 @@ type InventoryFlowFilters = {
   documentType: string;
   actionType: string;
 };
+
+type InventoryFlowFilterKey =
+  | "operationTime"
+  | "operator"
+  | "owner"
+  | "warehouse"
+  | "itemCode"
+  | "barcode"
+  | "itemName"
+  | "categoryLarge"
+  | "categoryMedium"
+  | "categorySmall"
+  | "businessNo"
+  | "documentType"
+  | "actionType";
 
 type InventoryFlowColumnId =
   | "operationTime"
@@ -91,6 +116,22 @@ const inventoryFlowTabs = [
   { label: "查询无结果", value: "no-result" },
   { label: "无权限", value: "no-auth" },
 ] as const;
+
+const inventoryFlowFilterDefinitions: Array<{ key: InventoryFlowFilterKey; queryColumns?: 1 | 2 }> = [
+  { key: "operationTime", queryColumns: 2 },
+  { key: "operator" },
+  { key: "owner" },
+  { key: "warehouse" },
+  { key: "itemCode" },
+  { key: "barcode" },
+  { key: "itemName" },
+  { key: "categoryLarge" },
+  { key: "categoryMedium" },
+  { key: "categorySmall" },
+  { key: "businessNo" },
+  { key: "documentType" },
+  { key: "actionType" },
+];
 
 function buildOptions(values: string[]) {
   return [{ label: "全部", value: "全部" }, ...values.map((value) => ({ label: value, value }))];
@@ -185,11 +226,15 @@ export function InventoryFlowQueryPage({
   const [page, setPage] = useState(1);
   const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
   const [scenario, setScenario] = useState<InventoryFlowScenario>("normal");
+  const [sortState, setSortState] = useState<TableSortState<InventoryFlowColumnId>>({
+    columnId: "operationTime",
+    direction: "desc",
+  });
 
   const inventoryFlowColumns = useMemo(
     () =>
       [
-        { id: "operationTime", label: "操作时间", group: "基础信息", required: true, defaultFixed: true, width: 168 },
+        { id: "operationTime", label: "操作时间", group: "基础信息", required: true, defaultFixed: true, width: 168, sortType: "datetime" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.operationTime },
         { id: "operator", label: "操作人", group: "基础信息", required: true, defaultFixed: true, width: 100 },
         { id: "owner", label: "货主", group: "基础信息", required: true, defaultFixed: true, width: 280 },
         { id: "warehouse", label: "仓库", group: "基础信息", required: true, width: 320 },
@@ -202,19 +247,19 @@ export function InventoryFlowQueryPage({
         { id: "businessNo", label: "业务单号", group: "业务信息", width: 170 },
         { id: "documentType", label: "单据类型", group: "业务信息", width: 140 },
         { id: "actionType", label: "动作类型", group: "业务信息", width: 100 },
-        { id: "totalChange", label: "总库存变动", group: "数量信息", width: 126 },
-        { id: "totalBefore", label: "总库存变动前", group: "数量信息", width: 136 },
-        { id: "totalAfter", label: "总库存变动后", group: "数量信息", width: 136 },
-        { id: "availableChange", label: "可用库存变动", group: "数量信息", width: 126 },
-        { id: "availableBefore", label: "可用库存变动前", group: "数量信息", width: 136 },
-        { id: "availableAfter", label: "可用库存变动后", group: "数量信息", width: 136 },
-        { id: "reservedChange", label: "预占库存变动", group: "数量信息", width: 126 },
-        { id: "reservedBefore", label: "预占库存变动前", group: "数量信息", width: 136 },
-        { id: "reservedAfter", label: "预占库存变动后", group: "数量信息", width: 136 },
-        { id: "frozenChange", label: "冻结库存变动", group: "数量信息", width: 126 },
-        { id: "frozenBefore", label: "冻结库存变动前", group: "数量信息", width: 136 },
-        { id: "frozenAfter", label: "冻结库存变动后", group: "数量信息", width: 136 },
-      ] satisfies Array<ColumnSettingsField & { id: InventoryFlowColumnId; width: number }>,
+        { id: "totalChange", label: "总库存变动", group: "数量信息", width: 126, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.totalChange },
+        { id: "totalBefore", label: "总库存变动前", group: "数量信息", width: 136, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.totalBefore },
+        { id: "totalAfter", label: "总库存变动后", group: "数量信息", width: 136, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.totalAfter },
+        { id: "availableChange", label: "可用库存变动", group: "数量信息", width: 126, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.availableChange },
+        { id: "availableBefore", label: "可用库存变动前", group: "数量信息", width: 136, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.availableBefore },
+        { id: "availableAfter", label: "可用库存变动后", group: "数量信息", width: 136, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.availableAfter },
+        { id: "reservedChange", label: "预占库存变动", group: "数量信息", width: 126, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.reservedChange },
+        { id: "reservedBefore", label: "预占库存变动前", group: "数量信息", width: 136, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.reservedBefore },
+        { id: "reservedAfter", label: "预占库存变动后", group: "数量信息", width: 136, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.reservedAfter },
+        { id: "frozenChange", label: "冻结库存变动", group: "数量信息", width: 126, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.frozenChange },
+        { id: "frozenBefore", label: "冻结库存变动前", group: "数量信息", width: 136, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.frozenBefore },
+        { id: "frozenAfter", label: "冻结库存变动后", group: "数量信息", width: 136, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryFlowRecord) => row.frozenAfter },
+      ] satisfies Array<ColumnSettingsField & { id: InventoryFlowColumnId; width: number; align?: "left" | "right"; sortType?: TableSortType; getSortValue?: (row: InventoryFlowRecord) => unknown }>,
     [],
   );
 
@@ -226,6 +271,10 @@ export function InventoryFlowQueryPage({
     storageKey: "column-settings:demo-user:inventory-flow-query",
     fields: inventoryFlowColumns,
     defaultDensity: "medium",
+  });
+  const { beginResize, widths: columnWidths } = useTableColumnResize({
+    state: inventoryFlowColumnState,
+    applyState: applyInventoryFlowColumnState,
   });
 
   const visibleColumns = useMemo(() => {
@@ -246,11 +295,11 @@ export function InventoryFlowQueryPage({
       }
 
       leftMap.set(column.id, left);
-      left += column.width;
+      left += columnWidths[column.id] ?? column.width;
     });
 
     return leftMap;
-  }, [inventoryFlowColumnState.fixed, visibleColumns]);
+  }, [columnWidths, inventoryFlowColumnState.fixed, visibleColumns]);
 
   const ownerOptions = useMemo(
     () => buildOptions(Array.from(new Set(inventoryFlowRecords.map((item) => item.owner)))),
@@ -281,36 +330,24 @@ export function InventoryFlowQueryPage({
     [],
   );
 
-  const visibleFilterKeys = showMoreFilters
-    ? [
-        "operationTime",
-        "operator",
-        "owner",
-        "warehouse",
-        "itemCode",
-        "barcode",
-        "itemName",
-        "categoryLarge",
-        "categoryMedium",
-        "categorySmall",
-        "businessNo",
-        "documentType",
-        "actionType",
-      ]
-    : [
-        "operationTime",
-        "operator",
-        "owner",
-        "warehouse",
-        "itemCode",
-        "barcode",
-        "itemName",
-        "categoryLarge",
-        "categoryMedium",
-        "categorySmall",
-        "businessNo",
-        "documentType",
-      ];
+  const visibleFilterKeys = getVisibleQuerySectionItems(inventoryFlowFilterDefinitions, showMoreFilters).map((filter) => filter.key);
+  const visibleFilterKeySet = new Set<InventoryFlowFilterKey>(visibleFilterKeys);
+  const hasCollapsedFilters = hasCollapsedQuerySectionItems(inventoryFlowFilterDefinitions);
+  const sortConfigs = useMemo(
+    () =>
+      inventoryFlowColumns.reduce<Partial<Record<InventoryFlowColumnId, TableSortConfig<InventoryFlowRecord>>>>((configs, column) => {
+        if (!column.sortType || !column.getSortValue) {
+          return configs;
+        }
+
+        configs[column.id] = {
+          type: column.sortType,
+          getValue: column.getSortValue,
+        };
+        return configs;
+      }, {}),
+    [inventoryFlowColumns],
+  );
 
   const filteredRows = useMemo(() => {
     return inventoryFlowRecords.filter((row) => {
@@ -349,9 +386,10 @@ export function InventoryFlowQueryPage({
     });
   }, [appliedFilters]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const sortedRows = useMemo(() => sortTableRows(filteredRows, sortState, sortConfigs), [filteredRows, sortConfigs, sortState]);
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
   const normalizedPage = Math.min(page, totalPages);
-  const pagedRows = filteredRows.slice((normalizedPage - 1) * pageSize, normalizedPage * pageSize);
+  const pagedRows = sortedRows.slice((normalizedPage - 1) * pageSize, normalizedPage * pageSize);
 
   function updateFilter<K extends keyof InventoryFlowFilters>(key: K, value: InventoryFlowFilters[K]) {
     setDraftFilters((current) => ({ ...current, [key]: value }));
@@ -515,7 +553,7 @@ export function InventoryFlowQueryPage({
 
       <Card>
         <div className="query-section-grid">
-          {visibleFilterKeys.includes("operationTime") ? (
+          {visibleFilterKeySet.has("operationTime") ? (
             <div className="xl:col-span-2">
               <div className="field-label">操作时间</div>
               <div className="grid grid-cols-2 gap-3">
@@ -532,43 +570,43 @@ export function InventoryFlowQueryPage({
               </div>
             </div>
           ) : null}
-          {visibleFilterKeys.includes("operator") ? (
+          {visibleFilterKeySet.has("operator") ? (
             <div>
               <div className="field-label">操作人</div>
               <Input value={draftFilters.operator} onChange={(event) => updateFilter("operator", event.target.value)} placeholder="请输入" />
             </div>
           ) : null}
-          {visibleFilterKeys.includes("owner") ? (
+          {visibleFilterKeySet.has("owner") ? (
             <div>
               <div className="field-label">货主</div>
               <Select value={draftFilters.owner} onValueChange={(value) => updateFilter("owner", value)} options={ownerOptions} />
             </div>
           ) : null}
-          {visibleFilterKeys.includes("warehouse") ? (
+          {visibleFilterKeySet.has("warehouse") ? (
             <div>
               <div className="field-label">仓库</div>
               <Select value={draftFilters.warehouse} onValueChange={(value) => updateFilter("warehouse", value)} options={warehouseOptions} />
             </div>
           ) : null}
-          {visibleFilterKeys.includes("itemCode") ? (
+          {visibleFilterKeySet.has("itemCode") ? (
             <div>
               <div className="field-label">商品编码</div>
               <Input value={draftFilters.itemCode} onChange={(event) => updateFilter("itemCode", event.target.value)} placeholder="请输入" />
             </div>
           ) : null}
-          {visibleFilterKeys.includes("barcode") ? (
+          {visibleFilterKeySet.has("barcode") ? (
             <div>
               <div className="field-label">商品条码</div>
               <Input value={draftFilters.barcode} onChange={(event) => updateFilter("barcode", event.target.value)} placeholder="请输入" />
             </div>
           ) : null}
-          {visibleFilterKeys.includes("itemName") ? (
+          {visibleFilterKeySet.has("itemName") ? (
             <div>
               <div className="field-label">商品名称</div>
               <Input value={draftFilters.itemName} onChange={(event) => updateFilter("itemName", event.target.value)} placeholder="请输入" />
             </div>
           ) : null}
-          {visibleFilterKeys.includes("categoryLarge") ? (
+          {visibleFilterKeySet.has("categoryLarge") ? (
             <div>
               <div className="field-label">商品大类</div>
               <Select
@@ -578,7 +616,7 @@ export function InventoryFlowQueryPage({
               />
             </div>
           ) : null}
-          {visibleFilterKeys.includes("categoryMedium") ? (
+          {visibleFilterKeySet.has("categoryMedium") ? (
             <div>
               <div className="field-label">商品中类</div>
               <Select
@@ -588,7 +626,7 @@ export function InventoryFlowQueryPage({
               />
             </div>
           ) : null}
-          {visibleFilterKeys.includes("categorySmall") ? (
+          {visibleFilterKeySet.has("categorySmall") ? (
             <div>
               <div className="field-label">商品小类</div>
               <Select
@@ -598,13 +636,13 @@ export function InventoryFlowQueryPage({
               />
             </div>
           ) : null}
-          {visibleFilterKeys.includes("businessNo") ? (
+          {visibleFilterKeySet.has("businessNo") ? (
             <div>
               <div className="field-label">业务单号</div>
               <Input value={draftFilters.businessNo} onChange={(event) => updateFilter("businessNo", event.target.value)} placeholder="请输入" />
             </div>
           ) : null}
-          {visibleFilterKeys.includes("documentType") ? (
+          {visibleFilterKeySet.has("documentType") ? (
             <div>
               <div className="field-label">单据类型</div>
               <Select
@@ -614,7 +652,7 @@ export function InventoryFlowQueryPage({
               />
             </div>
           ) : null}
-          {visibleFilterKeys.includes("actionType") ? (
+          {visibleFilterKeySet.has("actionType") ? (
             <div>
               <div className="field-label">动作类型</div>
               <Select
@@ -627,18 +665,20 @@ export function InventoryFlowQueryPage({
         </div>
         <div className="query-section-actions">
           <div className="query-section-action-group">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 text-small text-link transition hover:text-link-hover"
-              onClick={() => setShowMoreFilters((value) => !value)}
-            >
-              <ChevronDown
-                aria-hidden="true"
-                strokeWidth={1.8}
-                className={`h-4 w-4 transition-transform ${showMoreFilters ? "rotate-180" : ""}`}
-              />
-              {showMoreFilters ? "收起" : "展开"}
-            </button>
+            {hasCollapsedFilters ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-small text-link transition hover:text-link-hover"
+                onClick={() => setShowMoreFilters((value) => !value)}
+              >
+                <ChevronDown
+                  aria-hidden="true"
+                  strokeWidth={1.8}
+                  className={`h-4 w-4 transition-transform ${showMoreFilters ? "rotate-180" : ""}`}
+                />
+                {showMoreFilters ? "收起" : "展开"}
+              </button>
+            ) : null}
             <Button onClick={handleReset}>重置</Button>
             <Button variant="primary" onClick={handleQuery}>
               查询
@@ -689,24 +729,28 @@ export function InventoryFlowQueryPage({
             <table>
               <thead>
                 <tr>
-                  {visibleColumns.map((column) => {
+                  {visibleColumns.map((column, index) => {
                     const left = fixedLeftMap.get(column.id);
                     const isFixed = left !== undefined;
-                    const alignRight =
-                      column.id.includes("Change") || column.id.includes("Before") || column.id.includes("After");
+                    const width = columnWidths[column.id] ?? column.width;
 
                     return (
-                      <th
+                      <TableHeaderCell
                         key={column.id}
-                        className={`${alignRight ? "text-right" : ""} ${isFixed ? "table-fixed-cell is-header" : ""}`}
-                        style={{
-                          width: column.width,
-                          minWidth: column.width,
-                          left,
+                        label={column.label}
+                        width={width}
+                        left={left}
+                        isFixed={isFixed}
+                        align={column.align}
+                        sortable={Boolean(column.sortType && column.getSortValue)}
+                        showDivider={index < visibleColumns.length - 1}
+                        sortDirection={sortState?.columnId === column.id ? sortState.direction : undefined}
+                        onToggleSort={() => {
+                          setSortState((current) => getNextTableSortState(current, column.id));
+                          setPage(1);
                         }}
-                      >
-                        {column.label}
-                      </th>
+                        onResizeStart={index < visibleColumns.length - 1 ? (event) => beginResize(event, column.id, width) : undefined}
+                      />
                     );
                   })}
                 </tr>
@@ -714,19 +758,18 @@ export function InventoryFlowQueryPage({
               <tbody>
                 {pagedRows.map((row) => (
                   <tr key={row.id}>
-                    {visibleColumns.map((column) => {
+                    {visibleColumns.map((column, index) => {
                       const left = fixedLeftMap.get(column.id);
                       const isFixed = left !== undefined;
-                      const alignRight =
-                        column.id.includes("Change") || column.id.includes("Before") || column.id.includes("After");
+                      const width = columnWidths[column.id] ?? column.width;
 
                       return (
                         <td
                           key={column.id}
-                          className={`${alignRight ? "text-right" : ""} ${isFixed ? "table-fixed-cell is-body" : ""}`}
+                          className={`${column.align === "right" ? "text-right" : ""} ${isFixed ? "table-fixed-cell is-body" : ""}`}
                           style={{
-                            width: column.width,
-                            minWidth: column.width,
+                            width,
+                            minWidth: width,
                             left,
                           }}
                         >
@@ -742,7 +785,7 @@ export function InventoryFlowQueryPage({
           <Pagination
             currentPage={normalizedPage}
             totalPages={totalPages}
-            totalCount={filteredRows.length}
+            totalCount={sortedRows.length}
             pageSize={pageSize}
             pageSizeOptions={pageSizeOptions}
             showTopBorder

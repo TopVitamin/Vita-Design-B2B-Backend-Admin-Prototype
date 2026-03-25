@@ -11,6 +11,7 @@ export type ColumnSettingsField = {
   id: string;
   label: string;
   group: string;
+  width?: number;
   required?: boolean;
   defaultVisible?: boolean;
   defaultFixed?: boolean;
@@ -21,6 +22,7 @@ export type ColumnSettingsState = {
   visible: string[];
   fixed: string[];
   density: TableDensity;
+  widths: Record<string, number>;
 };
 
 type PersistedColumnSettingsOptions = {
@@ -75,6 +77,14 @@ function buildDefaultFixedIds(fields: ColumnSettingsField[], visibleIds: string[
   return leadingVisible.slice(0, fixedCount);
 }
 
+function buildDefaultWidths(fields: ColumnSettingsField[]) {
+  return Object.fromEntries(
+    fields
+      .filter((field) => typeof field.width === "number" && Number.isFinite(field.width))
+      .map((field) => [field.id, Math.max(80, Math.round(field.width as number))]),
+  );
+}
+
 export function getDefaultColumnSettings(
   fields: ColumnSettingsField[],
   defaultDensity: TableDensity = "medium",
@@ -89,6 +99,7 @@ export function getDefaultColumnSettings(
     visible,
     fixed,
     density: defaultDensity,
+    widths: buildDefaultWidths(fields),
   };
 }
 
@@ -129,11 +140,33 @@ export function normalizeColumnSettings(
     break;
   }
 
+  const defaultWidths = buildDefaultWidths(fields);
+  const widths = Object.entries(state.widths ?? {}).reduce<Record<string, number>>((result, [id, width]) => {
+    if (!fieldIdSet.has(id)) {
+      return result;
+    }
+
+    const numericWidth = typeof width === "number" ? width : Number(width);
+    if (!Number.isFinite(numericWidth)) {
+      return result;
+    }
+
+    result[id] = Math.max(80, Math.round(numericWidth));
+    return result;
+  }, {});
+
+  for (const [id, width] of Object.entries(defaultWidths)) {
+    if (!(id in widths)) {
+      widths[id] = width;
+    }
+  }
+
   return {
     order,
     visible,
     fixed: selectedOrder.slice(0, fixedCount),
     density: state.density ?? defaultDensity,
+    widths,
   } satisfies ColumnSettingsState;
 }
 
@@ -200,6 +233,10 @@ export function getDensityClassName(density: TableDensity) {
     return "table-density-relaxed";
   }
   return "table-density-medium";
+}
+
+export function getColumnWidth(field: ColumnSettingsField, state: ColumnSettingsState) {
+  return state.widths[field.id] ?? field.width ?? 120;
 }
 
 export function ColumnSettingsModal({

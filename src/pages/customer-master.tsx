@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Settings2 } from "lucide-react";
+import { ChevronDown, Settings2 } from "lucide-react";
 import { Banner } from "../components/ui/banner";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -24,9 +24,19 @@ import { ListPageMainCard, ListPageToolbar } from "../components/ui/list-page-la
 import { Modal } from "../components/ui/modal";
 import { Pagination } from "../components/ui/pagination";
 import { PageHeader } from "../components/ui/page-header";
+import { getVisibleQuerySectionItems, hasCollapsedQuerySectionItems } from "../components/ui/query-section";
 import { RadioGroup } from "../components/ui/radio-group";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { Select } from "../components/ui/select";
+import {
+  getNextTableSortState,
+  sortTableRows,
+  TableHeaderCell,
+  type TableSortConfig,
+  type TableSortState,
+  type TableSortType,
+  useTableColumnResize,
+} from "../components/ui/table-interactions";
 import { Textarea } from "../components/ui/textarea";
 import { Tabs } from "../components/ui/tabs";
 import { Timeline } from "../components/ui/timeline";
@@ -82,6 +92,17 @@ type CustomerListFilters = {
   status: string;
   kingdeeStatus: string;
   currency: string;
+};
+
+type CustomerQueryField = {
+  key: string;
+  label: string;
+  value: string;
+  kind?: "input" | "select";
+  options?: FieldOption[];
+  placeholder?: string;
+  queryColumns?: 1 | 2;
+  onChange: (value: string) => void;
 };
 
 const customerListTabs = [
@@ -262,6 +283,7 @@ function FormField({
   kind = "input",
   options = [],
   placeholder,
+  queryColumns,
   readOnly = false,
 }: {
   label: string;
@@ -270,12 +292,13 @@ function FormField({
   kind?: "input" | "select" | "textarea";
   options?: FieldOption[];
   placeholder?: string;
+  queryColumns?: 1 | 2;
   readOnly?: boolean;
 }) {
   const resolvedPlaceholder = kind === "select" ? "请选择" : "请输入";
 
   return (
-    <div>
+    <div className={queryColumns === 2 ? "xl:col-span-2" : undefined}>
       <div className="field-label">{label}</div>
       {readOnly ? (
         <div className="display-field">{value || "-"}</div>
@@ -388,7 +411,9 @@ export function CustomerListPage({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedCodes, setSelectedCodes] = useState<string[]>(records.slice(0, 2).map((item) => item.code));
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
+  const [sortState, setSortState] = useState<TableSortState<string>>(null);
 
   const customerColumns = useMemo(
     () =>
@@ -404,12 +429,12 @@ export function CustomerListPage({
         { id: "currency", label: "结算币别", group: "状态信息", width: 104 },
         { id: "contactName", label: "联系人", group: "联系信息", width: 110 },
         { id: "createdBy", label: "创建人", group: "制单信息", width: 100 },
-        { id: "createdAt", label: "创建时间", group: "制单信息", width: 168 },
+        { id: "createdAt", label: "创建时间", group: "制单信息", width: 168, sortType: "datetime" as TableSortType, getSortValue: (row: CustomerRecord) => row.createdAt },
         { id: "socialCreditCode", label: "统一社会信用代码", group: "扩展字段", defaultVisible: false, width: 190 },
         { id: "countryCode", label: "国家/地区二字码", group: "扩展字段", defaultVisible: false, width: 146 },
-        { id: "updatedAt", label: "最后修改时间", group: "扩展字段", defaultVisible: false, width: 168 },
+        { id: "updatedAt", label: "最后修改时间", group: "扩展字段", defaultVisible: false, width: 168, sortType: "datetime" as TableSortType, getSortValue: (row: CustomerRecord) => row.updatedAt },
         { id: "actions", label: "操作", group: "基础信息", required: true, width: 140 },
-      ] satisfies Array<ColumnSettingsField & { width: number }>,
+      ] satisfies Array<ColumnSettingsField & { width: number; sortType?: TableSortType; getSortValue?: (row: CustomerRecord) => unknown }>,
     [],
   );
 
@@ -421,6 +446,10 @@ export function CustomerListPage({
     storageKey: "column-settings:demo-user:customer-list",
     fields: customerColumns,
     defaultDensity: "medium",
+  });
+  const { beginResize, widths: columnWidths } = useTableColumnResize({
+    state: customerColumnState,
+    applyState: applyCustomerColumnState,
   });
 
   const visibleColumns = useMemo(() => {
@@ -441,15 +470,109 @@ export function CustomerListPage({
       }
 
       leftMap.set(column.id, left);
-      left += column.width;
+      left += columnWidths[column.id] ?? column.width;
     });
 
     return leftMap;
-  }, [customerColumnState.fixed, visibleColumns]);
+  }, [columnWidths, customerColumnState.fixed, visibleColumns]);
 
   useEffect(() => {
     setSelectedCodes((current) => current.filter((code) => records.some((item) => item.code === code)));
   }, [records]);
+
+  const queryFieldDefinitions: CustomerQueryField[] = [
+    {
+      key: "code",
+      label: "客户编码",
+      value: draftFilters.code,
+      placeholder: "请输入客户编码",
+      onChange: (value: string) => setDraftFilters((current) => ({ ...current, code: value })),
+    },
+    {
+      key: "name",
+      label: "客户名称",
+      value: draftFilters.name,
+      placeholder: "请输入客户名称",
+      onChange: (value: string) => setDraftFilters((current) => ({ ...current, name: value })),
+    },
+    {
+      key: "group",
+      label: "客户分组",
+      kind: "select" as const,
+      value: draftFilters.group,
+      options: [{ label: "全部", value: "全部" }, ...groupOptions],
+      onChange: (value: string) => setDraftFilters((current) => ({ ...current, group: value })),
+    },
+    {
+      key: "type",
+      label: "客户类型",
+      kind: "select" as const,
+      value: draftFilters.type,
+      options: [{ label: "全部", value: "全部" }, ...typeOptions],
+      onChange: (value: string) => setDraftFilters((current) => ({ ...current, type: value })),
+    },
+    {
+      key: "parentGroup",
+      label: "客户所属集团",
+      kind: "select" as const,
+      value: draftFilters.parentGroup,
+      options: [{ label: "全部", value: "全部" }, ...parentGroupOptions],
+      onChange: (value: string) => setDraftFilters((current) => ({ ...current, parentGroup: value })),
+    },
+    {
+      key: "status",
+      label: "状态",
+      kind: "select" as const,
+      value: draftFilters.status,
+      options: [
+        { label: "全部", value: "全部" },
+        { label: "待提交", value: "待提交" },
+        { label: "待审核", value: "待审核" },
+        { label: "已审核", value: "已审核" },
+        { label: "已驳回", value: "已驳回" },
+      ],
+      onChange: (value: string) => setDraftFilters((current) => ({ ...current, status: value })),
+    },
+    {
+      key: "kingdeeStatus",
+      label: "推送金蝶状态",
+      kind: "select" as const,
+      value: draftFilters.kingdeeStatus,
+      options: [
+        { label: "全部", value: "全部" },
+        { label: "未推送", value: "未推送" },
+        { label: "推送中", value: "推送中" },
+        { label: "推送成功", value: "推送成功" },
+        { label: "推送失败", value: "推送失败" },
+      ],
+      onChange: (value: string) => setDraftFilters((current) => ({ ...current, kingdeeStatus: value })),
+    },
+    {
+      key: "currency",
+      label: "结算币别",
+      kind: "select" as const,
+      value: draftFilters.currency,
+      options: [{ label: "全部", value: "全部" }, ...currencyOptions],
+      onChange: (value: string) => setDraftFilters((current) => ({ ...current, currency: value })),
+    },
+  ];
+  const visibleQueryFields = getVisibleQuerySectionItems(queryFieldDefinitions, showMoreFilters);
+  const hasCollapsedQueryFields = hasCollapsedQuerySectionItems(queryFieldDefinitions);
+  const sortConfigs = useMemo(
+    () =>
+      customerColumns.reduce<Partial<Record<string, TableSortConfig<CustomerRecord>>>>((configs, column) => {
+        if (!column.sortType || !column.getSortValue) {
+          return configs;
+        }
+
+        configs[column.id] = {
+          type: column.sortType,
+          getValue: column.getSortValue,
+        };
+        return configs;
+      }, {}),
+    [customerColumns],
+  );
 
   const filteredRows = useMemo(() => {
     return records.filter((row) => {
@@ -475,8 +598,9 @@ export function CustomerListPage({
     });
   }, [activeFilters, records]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
-  const pageRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
+  const sortedRows = useMemo(() => sortTableRows(filteredRows, sortState, sortConfigs), [filteredRows, sortConfigs, sortState]);
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
+  const pageRows = sortedRows.slice((page - 1) * pageSize, page * pageSize);
   const allCurrentPageSelected = pageRows.length > 0 && pageRows.every((row) => selectedCodes.includes(row.code));
 
   function handleQuery() {
@@ -511,6 +635,7 @@ export function CustomerListPage({
   function handleReset() {
     setDraftFilters(defaultListFilters);
     setActiveFilters(defaultListFilters);
+    setShowMoreFilters(false);
     setPage(1);
     onScenarioChange("normal");
   }
@@ -653,74 +778,34 @@ export function CustomerListPage({
 
       <Card>
         <div className="query-section-grid">
-          <FormField
-            label="客户编码"
-            value={draftFilters.code}
-            placeholder="请输入客户编码"
-            onChange={(value) => setDraftFilters((current) => ({ ...current, code: value }))}
-          />
-          <FormField
-            label="客户名称"
-            value={draftFilters.name}
-            placeholder="请输入客户名称"
-            onChange={(value) => setDraftFilters((current) => ({ ...current, name: value }))}
-          />
-          <FormField
-            label="客户分组"
-            kind="select"
-            value={draftFilters.group}
-            options={[{ label: "全部", value: "全部" }, ...groupOptions]}
-            onChange={(value) => setDraftFilters((current) => ({ ...current, group: value }))}
-          />
-          <FormField
-            label="客户类型"
-            kind="select"
-            value={draftFilters.type}
-            options={[{ label: "全部", value: "全部" }, ...typeOptions]}
-            onChange={(value) => setDraftFilters((current) => ({ ...current, type: value }))}
-          />
-          <FormField
-            label="客户所属集团"
-            kind="select"
-            value={draftFilters.parentGroup}
-            options={[{ label: "全部", value: "全部" }, ...parentGroupOptions]}
-            onChange={(value) => setDraftFilters((current) => ({ ...current, parentGroup: value }))}
-          />
-          <FormField
-            label="状态"
-            kind="select"
-            value={draftFilters.status}
-            options={[
-              { label: "全部", value: "全部" },
-              { label: "待提交", value: "待提交" },
-              { label: "待审核", value: "待审核" },
-              { label: "已审核", value: "已审核" },
-              { label: "已驳回", value: "已驳回" },
-            ]}
-            onChange={(value) => setDraftFilters((current) => ({ ...current, status: value }))}
-          />
-          <FormField
-            label="推送金蝶状态"
-            kind="select"
-            value={draftFilters.kingdeeStatus}
-            options={[
-              { label: "全部", value: "全部" },
-              { label: "未推送", value: "未推送" },
-              { label: "推送中", value: "推送中" },
-              { label: "推送成功", value: "推送成功" },
-              { label: "推送失败", value: "推送失败" },
-            ]}
-            onChange={(value) => setDraftFilters((current) => ({ ...current, kingdeeStatus: value }))}
-          />
-          <FormField
-            label="结算币别"
-            kind="select"
-            value={draftFilters.currency}
-            options={[{ label: "全部", value: "全部" }, ...currencyOptions]}
-            onChange={(value) => setDraftFilters((current) => ({ ...current, currency: value }))}
-          />
+          {visibleQueryFields.map((field) => (
+            <FormField
+              key={field.key}
+              label={field.label}
+              kind={field.kind}
+              value={field.value}
+              options={field.options}
+              placeholder={field.placeholder}
+              queryColumns={field.queryColumns}
+              onChange={field.onChange}
+            />
+          ))}
         </div>
         <div className="query-section-actions">
+          {hasCollapsedQueryFields ? (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-small text-link transition hover:text-link-hover"
+              onClick={() => setShowMoreFilters((value) => !value)}
+            >
+              <ChevronDown
+                aria-hidden="true"
+                strokeWidth={1.8}
+                className={`h-4 w-4 transition-transform ${showMoreFilters ? "rotate-180" : ""}`}
+              />
+              {showMoreFilters ? "收起" : "展开"}
+            </button>
+          ) : null}
           <Button variant="secondary" onClick={handleReset}>
             重置
           </Button>
@@ -804,22 +889,27 @@ export function CustomerListPage({
               <table>
                 <thead>
                   <tr>
-                    {visibleColumns.map((column) => {
+                    {visibleColumns.map((column, index) => {
                       const left = fixedLeftMap.get(column.id);
                       const isFixed = left !== undefined;
+                      const width = columnWidths[column.id] ?? column.width;
 
                       return (
-                        <th
+                        <TableHeaderCell
                           key={column.id}
-                          className={isFixed ? "table-fixed-cell is-header" : ""}
-                          style={{
-                            width: column.width,
-                            minWidth: column.width,
-                            left,
+                          label={column.label}
+                          width={width}
+                          left={left}
+                          isFixed={isFixed}
+                          sortable={Boolean(column.sortType && column.getSortValue)}
+                          showDivider={index < visibleColumns.length - 1}
+                          sortDirection={sortState?.columnId === column.id ? sortState.direction : undefined}
+                          onToggleSort={() => {
+                            setSortState((current) => getNextTableSortState(current, column.id));
+                            setPage(1);
                           }}
-                        >
-                          {column.label}
-                        </th>
+                          onResizeStart={index < visibleColumns.length - 1 ? (event) => beginResize(event, column.id, width) : undefined}
+                        />
                       );
                     })}
                   </tr>
@@ -827,17 +917,18 @@ export function CustomerListPage({
                 <tbody>
                   {pageRows.map((row) => (
                     <tr key={row.code}>
-                      {visibleColumns.map((column) => {
+                      {visibleColumns.map((column, index) => {
                         const left = fixedLeftMap.get(column.id);
                         const isFixed = left !== undefined;
+                        const width = columnWidths[column.id] ?? column.width;
 
                         return (
                           <td
                             key={column.id}
                             className={isFixed ? "table-fixed-cell is-body" : ""}
                             style={{
-                              width: column.width,
-                              minWidth: column.width,
+                              width,
+                              minWidth: width,
                               left,
                             }}
                           >
@@ -854,7 +945,7 @@ export function CustomerListPage({
             <Pagination
               currentPage={page}
               totalPages={totalPages}
-              totalCount={filteredRows.length}
+              totalCount={sortedRows.length}
               pageSize={pageSize}
               pageSizeOptions={[10, 20, 50]}
               onPageChange={setPage}

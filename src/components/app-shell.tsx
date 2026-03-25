@@ -164,6 +164,13 @@ type SearchMenuItem = {
   type: "primary" | "secondary";
 };
 
+type TenantOption = {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+};
+
 export function AppShell({
   tabs,
   currentTab,
@@ -185,6 +192,9 @@ export function AppShell({
   onNotificationViewMore,
   exportTaskAttentionCount = 0,
   onExportTaskCenterOpen,
+  tenantOptions = [],
+  currentTenantId,
+  onTenantChange,
   children,
 }: {
   tabs: Array<{ key: string; label: string; closable?: boolean; icon?: LucideIcon }>;
@@ -207,6 +217,9 @@ export function AppShell({
   onNotificationViewMore?: () => void;
   exportTaskAttentionCount?: number;
   onExportTaskCenterOpen?: () => void;
+  tenantOptions?: TenantOption[];
+  currentTenantId?: string;
+  onTenantChange?: (tenantId: string) => void;
   children: ReactNode;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -219,12 +232,15 @@ export function AppShell({
   const [menuSearchQuery, setMenuSearchQuery] = useState("");
   const [menuSearchHighlightedIndex, setMenuSearchHighlightedIndex] = useState(0);
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
+  const [tenantMenuOpen, setTenantMenuOpen] = useState(false);
+  const [tenantSearchQuery, setTenantSearchQuery] = useState("");
   const [visibleTabKeys, setVisibleTabKeys] = useState<string[]>(tabs.map((tab) => tab.key));
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const notificationPanelRef = useRef<HTMLDivElement | null>(null);
   const menuSearchRef = useRef<HTMLDivElement | null>(null);
   const menuSearchInputRef = useRef<HTMLInputElement | null>(null);
   const overflowMenuRef = useRef<HTMLDivElement | null>(null);
+  const tenantMenuRef = useRef<HTMLDivElement | null>(null);
   const visibleTabsContainerRef = useRef<HTMLDivElement | null>(null);
   const overflowTriggerMeasureRef = useRef<HTMLButtonElement | null>(null);
   const measureTabRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -236,6 +252,19 @@ export function AppShell({
   ];
 
   const currentNotificationItems = notificationPreviewItems.filter((item) => item.feedTab === activeNotificationTab).slice(0, 4);
+  const currentTenant = tenantOptions.find((item) => item.id === currentTenantId) ?? tenantOptions[0];
+  const filteredTenantOptions = useMemo(() => {
+    const keyword = tenantSearchQuery.trim().toLowerCase();
+    if (!keyword) {
+      return tenantOptions;
+    }
+
+    return tenantOptions.filter((item) =>
+      [item.name, item.code, item.description]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(keyword)),
+    );
+  }, [tenantOptions, tenantSearchQuery]);
   const allSearchMenuItems = useMemo<SearchMenuItem[]>(
     () => [
       ...navigationTree.flatMap((section) =>
@@ -325,6 +354,10 @@ export function AppShell({
       if (overflowMenuRef.current && !overflowMenuRef.current.contains(target)) {
         setOverflowMenuOpen(false);
       }
+
+      if (tenantMenuRef.current && !tenantMenuRef.current.contains(target)) {
+        setTenantMenuOpen(false);
+      }
     }
 
     window.addEventListener("pointerdown", handlePointerDown);
@@ -377,6 +410,113 @@ export function AppShell({
     setMenuSearchOpen(false);
     setMenuSearchQuery("");
     setMenuSearchHighlightedIndex(0);
+  }
+
+  function handleTenantSelect(tenantId: string) {
+    onTenantChange?.(tenantId);
+    setTenantMenuOpen(false);
+    setTenantSearchQuery("");
+  }
+
+  function renderTenantSwitcher(compact = false) {
+    if (!currentTenant) {
+      return null;
+    }
+
+    return (
+      <div ref={tenantMenuRef} className={`relative ${compact ? "flex justify-center" : ""}`}>
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={tenantMenuOpen}
+          className={`group flex items-center border border-border bg-white text-left text-text-primary transition hover:bg-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-subtle ${
+            compact ? "h-10 w-10 justify-center rounded-sm" : "w-full justify-between rounded-md px-2.5 py-2"
+          }`}
+          onClick={() => {
+            setTenantMenuOpen((current) => !current);
+            setUserMenuOpen(false);
+            setNotificationPanelOpen(false);
+            setMenuSearchOpen(false);
+          }}
+        >
+          {compact ? (
+            <Building2 aria-hidden="true" strokeWidth={1.8} className="h-4 w-4 text-text-secondary group-hover:text-text-primary" />
+          ) : (
+            <>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-primary-subtle text-primary">
+                  <Building2 aria-hidden="true" strokeWidth={1.8} className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate whitespace-nowrap text-[13px] font-semibold leading-[1.15] text-text-primary">
+                    {currentTenant.name}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[11px] leading-[1.1] text-text-muted">{currentTenant.code}</span>
+                </span>
+              </span>
+              <ChevronDown
+                aria-hidden="true"
+                className={`h-4 w-4 shrink-0 text-text-muted transition-transform ${tenantMenuOpen ? "rotate-180 text-text-primary" : ""}`}
+              />
+            </>
+          )}
+        </button>
+
+        {tenantMenuOpen ? (
+          <div
+            role="menu"
+            className={`absolute z-30 overflow-hidden rounded-md border border-border bg-white shadow-md ${
+              compact ? "left-[calc(100%+8px)] top-0 w-[320px]" : "left-0 top-[calc(100%+8px)] w-full min-w-[320px]"
+            }`}
+          >
+            <div className="border-b border-border px-3 py-3">
+              <div className="text-small text-text-muted">当前租户</div>
+              <div className="mt-1 truncate text-body-lg font-body-strong text-text-primary">{currentTenant.name}</div>
+              <div className="mt-1 truncate text-small text-text-muted">{currentTenant.code}</div>
+              <input
+                value={tenantSearchQuery}
+                onChange={(event) => setTenantSearchQuery(event.target.value)}
+                className="mt-3 h-input-md w-full rounded-sm border border-border bg-white px-input-x text-body outline-none ring-0 placeholder:text-text-placeholder transition focus:border-border-focus focus:ring-2 focus:ring-primary-subtle"
+                placeholder="搜索租户名称或编码"
+              />
+            </div>
+
+            <div className="max-h-[320px] overflow-auto px-2 py-2">
+              {filteredTenantOptions.length ? (
+                filteredTenantOptions.map((tenant) => {
+                  const active = tenant.id === currentTenant.id;
+
+                  return (
+                    <button
+                      key={tenant.id}
+                      type="button"
+                      className={`flex w-full items-start justify-between gap-3 rounded-sm px-3 py-2.5 text-left transition ${
+                        active ? "bg-primary-subtle" : "hover:bg-bg-hover"
+                      }`}
+                      onClick={() => handleTenantSelect(tenant.id)}
+                    >
+                      <span className="min-w-0">
+                        <span className={`block truncate text-body ${active ? "font-body-strong text-primary" : "text-text-primary"}`}>
+                          {tenant.name}
+                        </span>
+                        <span className="mt-1 block truncate text-small text-text-muted">
+                          {tenant.code}
+                          {tenant.description ? ` · ${tenant.description}` : ""}
+                        </span>
+                      </span>
+                      {active ? <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" /> : null}
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="px-3 py-10 text-center text-body text-text-muted">没有匹配的租户。</div>
+              )}
+            </div>
+
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   useLayoutEffect(() => {
@@ -525,7 +665,11 @@ export function AppShell({
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-3">
+        <div className={`${sidebarCollapsed ? "px-2 pt-2" : "px-3 pt-3"}`}>
+          {renderTenantSwitcher(sidebarCollapsed)}
+        </div>
+
+        <div className="sidebar-scroll-region flex-1 overflow-y-auto px-2 py-3">
           {sidebarCollapsed ? (
             <div className="flex flex-col items-center gap-2">
               {navigationTree.map((section) => {

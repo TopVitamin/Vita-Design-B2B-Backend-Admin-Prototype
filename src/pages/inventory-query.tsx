@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { Settings2 } from "lucide-react";
+import { ChevronDown, Settings2 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import {
@@ -17,7 +17,17 @@ import { Input } from "../components/ui/input";
 import { ListPageMainCard, ListPageToolbar } from "../components/ui/list-page-layout";
 import { Pagination } from "../components/ui/pagination";
 import { PageHeader } from "../components/ui/page-header";
+import { getVisibleQuerySectionItems, hasCollapsedQuerySectionItems } from "../components/ui/query-section";
 import { Select } from "../components/ui/select";
+import {
+  getNextTableSortState,
+  sortTableRows,
+  TableHeaderCell,
+  type TableSortConfig,
+  type TableSortState,
+  type TableSortType,
+  useTableColumnResize,
+} from "../components/ui/table-interactions";
 import { inventoryQueryRecords, type InventoryQueryRecord } from "../data/inventory-query";
 
 type InventoryQueryFilters = {
@@ -46,6 +56,16 @@ type InventoryColumnId =
   | "frozenQty";
 
 type InventoryQueryScenario = "normal" | "loading" | "no-result" | "no-auth";
+
+type InventoryQueryFieldKey =
+  | "owner"
+  | "warehouse"
+  | "itemCode"
+  | "barcode"
+  | "itemName"
+  | "categoryLarge"
+  | "categoryMedium"
+  | "categorySmall";
 
 const defaultFilters: InventoryQueryFilters = {
   owner: "全部",
@@ -94,6 +114,7 @@ export function InventoryQueryPage({
   const [page, setPage] = useState(1);
   const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
   const [scenario, setScenario] = useState<InventoryQueryScenario>("normal");
+  const [sortState, setSortState] = useState<TableSortState<InventoryColumnId>>(null);
 
   const inventoryColumns = useMemo(
     () =>
@@ -106,11 +127,11 @@ export function InventoryQueryPage({
         { id: "categoryLarge", label: "商品大类", group: "品类信息", width: 150 },
         { id: "categoryMedium", label: "商品中类", group: "品类信息", width: 150 },
         { id: "categorySmall", label: "商品小类", group: "品类信息", width: 150 },
-        { id: "totalQty", label: "总数量", group: "数量信息", width: 108, defaultFixed: true },
-        { id: "availableQty", label: "可用数量", group: "数量信息", width: 108 },
-        { id: "reservedQty", label: "预占数量", group: "数量信息", width: 108 },
-        { id: "frozenQty", label: "冻结数量", group: "数量信息", width: 108 },
-      ] satisfies Array<ColumnSettingsField & { id: InventoryColumnId; width: number }>,
+        { id: "totalQty", label: "总数量", group: "数量信息", width: 108, defaultFixed: true, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryQueryRecord) => row.totalQty },
+        { id: "availableQty", label: "可用数量", group: "数量信息", width: 108, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryQueryRecord) => row.availableQty },
+        { id: "reservedQty", label: "预占数量", group: "数量信息", width: 108, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryQueryRecord) => row.reservedQty },
+        { id: "frozenQty", label: "冻结数量", group: "数量信息", width: 108, align: "right" as const, sortType: "number" as TableSortType, getSortValue: (row: InventoryQueryRecord) => row.frozenQty },
+      ] satisfies Array<ColumnSettingsField & { id: InventoryColumnId; width: number; align?: "left" | "right"; sortType?: TableSortType; getSortValue?: (row: InventoryQueryRecord) => unknown }>,
     [],
   );
 
@@ -122,6 +143,10 @@ export function InventoryQueryPage({
     storageKey: "column-settings:demo-user:inventory-query",
     fields: inventoryColumns,
     defaultDensity: "medium",
+  });
+  const { beginResize, widths: columnWidths } = useTableColumnResize({
+    state: inventoryColumnState,
+    applyState: applyInventoryColumnState,
   });
 
   const visibleColumns = useMemo(() => {
@@ -142,11 +167,11 @@ export function InventoryQueryPage({
       }
 
       leftMap.set(column.id, left);
-      left += column.width;
+      left += columnWidths[column.id] ?? column.width;
     });
 
     return leftMap;
-  }, [inventoryColumnState.fixed, visibleColumns]);
+  }, [columnWidths, inventoryColumnState.fixed, visibleColumns]);
 
   const ownerOptions = useMemo(
     () => buildOptions(Array.from(new Set(inventoryQueryRecords.map((item) => item.owner)))),
@@ -167,6 +192,36 @@ export function InventoryQueryPage({
   const smallCategoryOptions = useMemo(
     () => buildOptions(Array.from(new Set(inventoryQueryRecords.map((item) => item.categorySmall)))),
     [],
+  );
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  const queryFieldDefinitions: Array<{ key: InventoryQueryFieldKey; queryColumns?: 1 | 2 }> = [
+    { key: "owner" },
+    { key: "warehouse" },
+    { key: "itemCode" },
+    { key: "barcode" },
+    { key: "itemName" },
+    { key: "categoryLarge" },
+    { key: "categoryMedium" },
+    { key: "categorySmall" },
+  ];
+  const visibleQueryFieldKeys = getVisibleQuerySectionItems(queryFieldDefinitions, showMoreFilters).map((field) => field.key);
+  const visibleQueryFieldKeySet = new Set<InventoryQueryFieldKey>(visibleQueryFieldKeys);
+  const hasCollapsedQueryFields = hasCollapsedQuerySectionItems(queryFieldDefinitions);
+  const sortConfigs = useMemo(
+    () =>
+      inventoryColumns.reduce<Partial<Record<InventoryColumnId, TableSortConfig<InventoryQueryRecord>>>>((configs, column) => {
+        if (!column.sortType || !column.getSortValue) {
+          return configs;
+        }
+
+        configs[column.id] = {
+          type: column.sortType,
+          getValue: column.getSortValue,
+        };
+        return configs;
+      }, {}),
+    [inventoryColumns],
   );
 
   const filteredRows = useMemo(() => {
@@ -195,9 +250,10 @@ export function InventoryQueryPage({
     });
   }, [appliedFilters]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const sortedRows = useMemo(() => sortTableRows(filteredRows, sortState, sortConfigs), [filteredRows, sortConfigs, sortState]);
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
   const normalizedPage = Math.min(page, totalPages);
-  const pagedRows = filteredRows.slice((normalizedPage - 1) * pageSize, normalizedPage * pageSize);
+  const pagedRows = sortedRows.slice((normalizedPage - 1) * pageSize, normalizedPage * pageSize);
 
   const summary = useMemo(() => {
     return filteredRows.reduce(
@@ -244,6 +300,7 @@ export function InventoryQueryPage({
   function handleReset() {
     setDraftFilters(defaultFilters);
     setAppliedFilters(defaultFilters);
+    setShowMoreFilters(false);
     setPage(1);
     setScenario("normal");
   }
@@ -333,52 +390,82 @@ export function InventoryQueryPage({
 
       <Card>
         <div className="query-section-grid">
-          <div>
-            <div className="field-label">货主</div>
-            <Select value={draftFilters.owner} onValueChange={(value) => updateFilter("owner", value)} options={ownerOptions} />
-          </div>
-          <div>
-            <div className="field-label">仓库</div>
-            <Select value={draftFilters.warehouse} onValueChange={(value) => updateFilter("warehouse", value)} options={warehouseOptions} />
-          </div>
-          <div>
-            <div className="field-label">商品编码</div>
-            <Input value={draftFilters.itemCode} onChange={(event) => updateFilter("itemCode", event.target.value)} placeholder="请输入" />
-          </div>
-          <div>
-            <div className="field-label">商品条码</div>
-            <Input value={draftFilters.barcode} onChange={(event) => updateFilter("barcode", event.target.value)} placeholder="请输入" />
-          </div>
-          <div>
-            <div className="field-label">商品名称</div>
-            <Input value={draftFilters.itemName} onChange={(event) => updateFilter("itemName", event.target.value)} placeholder="请输入" />
-          </div>
-          <div>
-            <div className="field-label">商品大类</div>
-            <Select
-              value={draftFilters.categoryLarge}
-              onValueChange={(value) => updateFilter("categoryLarge", value)}
-              options={largeCategoryOptions}
-            />
-          </div>
-          <div>
-            <div className="field-label">商品中类</div>
-            <Select
-              value={draftFilters.categoryMedium}
-              onValueChange={(value) => updateFilter("categoryMedium", value)}
-              options={mediumCategoryOptions}
-            />
-          </div>
-          <div>
-            <div className="field-label">商品小类</div>
-            <Select
-              value={draftFilters.categorySmall}
-              onValueChange={(value) => updateFilter("categorySmall", value)}
-              options={smallCategoryOptions}
-            />
-          </div>
+          {visibleQueryFieldKeySet.has("owner") ? (
+            <div>
+              <div className="field-label">货主</div>
+              <Select value={draftFilters.owner} onValueChange={(value) => updateFilter("owner", value)} options={ownerOptions} />
+            </div>
+          ) : null}
+          {visibleQueryFieldKeySet.has("warehouse") ? (
+            <div>
+              <div className="field-label">仓库</div>
+              <Select value={draftFilters.warehouse} onValueChange={(value) => updateFilter("warehouse", value)} options={warehouseOptions} />
+            </div>
+          ) : null}
+          {visibleQueryFieldKeySet.has("itemCode") ? (
+            <div>
+              <div className="field-label">商品编码</div>
+              <Input value={draftFilters.itemCode} onChange={(event) => updateFilter("itemCode", event.target.value)} placeholder="请输入" />
+            </div>
+          ) : null}
+          {visibleQueryFieldKeySet.has("barcode") ? (
+            <div>
+              <div className="field-label">商品条码</div>
+              <Input value={draftFilters.barcode} onChange={(event) => updateFilter("barcode", event.target.value)} placeholder="请输入" />
+            </div>
+          ) : null}
+          {visibleQueryFieldKeySet.has("itemName") ? (
+            <div>
+              <div className="field-label">商品名称</div>
+              <Input value={draftFilters.itemName} onChange={(event) => updateFilter("itemName", event.target.value)} placeholder="请输入" />
+            </div>
+          ) : null}
+          {visibleQueryFieldKeySet.has("categoryLarge") ? (
+            <div>
+              <div className="field-label">商品大类</div>
+              <Select
+                value={draftFilters.categoryLarge}
+                onValueChange={(value) => updateFilter("categoryLarge", value)}
+                options={largeCategoryOptions}
+              />
+            </div>
+          ) : null}
+          {visibleQueryFieldKeySet.has("categoryMedium") ? (
+            <div>
+              <div className="field-label">商品中类</div>
+              <Select
+                value={draftFilters.categoryMedium}
+                onValueChange={(value) => updateFilter("categoryMedium", value)}
+                options={mediumCategoryOptions}
+              />
+            </div>
+          ) : null}
+          {visibleQueryFieldKeySet.has("categorySmall") ? (
+            <div>
+              <div className="field-label">商品小类</div>
+              <Select
+                value={draftFilters.categorySmall}
+                onValueChange={(value) => updateFilter("categorySmall", value)}
+                options={smallCategoryOptions}
+              />
+            </div>
+          ) : null}
         </div>
         <div className="query-section-actions">
+          {hasCollapsedQueryFields ? (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-small text-link transition hover:text-link-hover"
+              onClick={() => setShowMoreFilters((value) => !value)}
+            >
+              <ChevronDown
+                aria-hidden="true"
+                strokeWidth={1.8}
+                className={`h-4 w-4 transition-transform ${showMoreFilters ? "rotate-180" : ""}`}
+              />
+              {showMoreFilters ? "收起" : "展开"}
+            </button>
+          ) : null}
           <Button onClick={handleReset}>重置</Button>
           <Button variant="primary" onClick={handleQuery}>
             查询
@@ -448,23 +535,28 @@ export function InventoryQueryPage({
             <table>
               <thead>
                 <tr>
-                  {visibleColumns.map((column) => {
+                  {visibleColumns.map((column, index) => {
                     const left = fixedLeftMap.get(column.id);
                     const isFixed = left !== undefined;
-                    const alignRight = column.id.endsWith("Qty");
+                    const width = columnWidths[column.id] ?? column.width;
 
                     return (
-                      <th
+                      <TableHeaderCell
                         key={column.id}
-                        className={`${alignRight ? "text-right" : ""} ${isFixed ? "table-fixed-cell is-header" : ""}`}
-                        style={{
-                          width: column.width,
-                          minWidth: column.width,
-                          left,
+                        label={column.label}
+                        width={width}
+                        left={left}
+                        isFixed={isFixed}
+                        align={column.align}
+                        sortable={Boolean(column.sortType && column.getSortValue)}
+                        showDivider={index < visibleColumns.length - 1}
+                        sortDirection={sortState?.columnId === column.id ? sortState.direction : undefined}
+                        onToggleSort={() => {
+                          setSortState((current) => getNextTableSortState(current, column.id));
+                          setPage(1);
                         }}
-                      >
-                        {column.label}
-                      </th>
+                        onResizeStart={index < visibleColumns.length - 1 ? (event) => beginResize(event, column.id, width) : undefined}
+                      />
                     );
                   })}
                 </tr>
@@ -472,18 +564,18 @@ export function InventoryQueryPage({
               <tbody>
                 {pagedRows.map((row) => (
                   <tr key={row.id}>
-                    {visibleColumns.map((column) => {
+                    {visibleColumns.map((column, index) => {
                       const left = fixedLeftMap.get(column.id);
                       const isFixed = left !== undefined;
-                      const alignRight = column.id.endsWith("Qty");
+                      const width = columnWidths[column.id] ?? column.width;
 
                       return (
                         <td
                           key={column.id}
-                          className={`${alignRight ? "text-right" : ""} ${isFixed ? "table-fixed-cell is-body" : ""}`}
+                          className={`${column.align === "right" ? "text-right" : ""} ${isFixed ? "table-fixed-cell is-body" : ""}`}
                           style={{
-                            width: column.width,
-                            minWidth: column.width,
+                            width,
+                            minWidth: width,
                             left,
                           }}
                         >
@@ -499,7 +591,7 @@ export function InventoryQueryPage({
           <Pagination
             currentPage={normalizedPage}
             totalPages={totalPages}
-            totalCount={filteredRows.length}
+            totalCount={sortedRows.length}
             pageSize={pageSize}
             pageSizeOptions={pageSizeOptions}
             showTopBorder

@@ -125,6 +125,7 @@
     color: var(--text-secondary);
     font-size: var(--table-header-font-size);
     font-weight: var(--table-header-font-weight);
+    position: relative;
   }
 
   td {
@@ -282,7 +283,6 @@
 
   .table-fixed-cell {
     @apply sticky bg-white;
-    box-shadow: inset -1px 0 0 var(--border-subtle);
   }
 
   .table-fixed-cell.is-header {
@@ -292,6 +292,77 @@
 
   .table-fixed-cell.is-body {
     z-index: 3;
+  }
+
+  .table-header-cell {
+    @apply relative flex min-w-0 items-center gap-2;
+  }
+
+  .table-header-cell.is-right {
+    @apply justify-end;
+    padding-right: 8px;
+  }
+
+  .table-column-divider::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 0;
+    width: 1px;
+    height: 20px;
+    transform: translateY(-50%);
+    background: var(--border-strong);
+    opacity: 0.72;
+    pointer-events: none;
+  }
+
+  .table-sort-trigger {
+    @apply inline-flex w-full min-w-0 items-center gap-1 bg-transparent p-0 text-left text-inherit outline-none transition hover:text-text-primary focus-visible:ring-2 focus-visible:ring-primary-subtle;
+  }
+
+  .table-sort-trigger.is-right {
+    @apply justify-end text-right;
+    padding-right: 2px;
+  }
+
+  .table-sort-icons {
+    @apply inline-flex shrink-0 flex-col items-center justify-center leading-none;
+  }
+
+  .table-resize-handle {
+    position: absolute;
+    top: -10px;
+    right: -6px;
+    z-index: 6;
+    width: 12px;
+    height: calc(100% + 20px);
+    cursor: col-resize;
+  }
+
+  .table-resize-handle::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 0;
+    width: 1px;
+    height: 14px;
+    transform: translateY(-50%);
+    border-radius: 999px;
+    background: var(--border-strong);
+    transition: background-color 0.16s ease;
+  }
+
+  .table-resize-handle:hover::before {
+    background: var(--primary);
+  }
+
+  .sidebar-scroll-region {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .sidebar-scroll-region::-webkit-scrollbar {
+    display: none;
   }
 
   .column-settings-layout {

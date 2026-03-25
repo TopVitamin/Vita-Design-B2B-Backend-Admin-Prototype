@@ -570,7 +570,7 @@
     content: "";
     width: 1px;
     height: 14px;
-    background: var(--border-subtle);
+    background: var(--border-strong);
 }
 
 .workspace-tab-item.is-active::after {

@@ -27,10 +27,20 @@ import { ListPageMainCard, ListPageToolbar } from "./components/ui/list-page-lay
 import { Modal } from "./components/ui/modal";
 import { Pagination } from "./components/ui/pagination";
 import { PageHeader } from "./components/ui/page-header";
+import { getVisibleQuerySectionItems, hasCollapsedQuerySectionItems } from "./components/ui/query-section";
 import { RadioGroup } from "./components/ui/radio-group";
 import { SegmentedControl } from "./components/ui/segmented-control";
 import { Select } from "./components/ui/select";
 import { Switch } from "./components/ui/switch";
+import {
+  getNextTableSortState,
+  sortTableRows,
+  TableHeaderCell,
+  type TableSortConfig,
+  type TableSortState,
+  type TableSortType,
+  useTableColumnResize,
+} from "./components/ui/table-interactions";
 import { Tabs } from "./components/ui/tabs";
 import { Timeline } from "./components/ui/timeline";
 import { Textarea } from "./components/ui/textarea";
@@ -57,6 +67,7 @@ import {
   approvalLogs,
   lineItems,
   operationLogs,
+  type PurchaseOrderRow,
   purchaseOrders,
   relatedDocuments,
 } from "./data/purchase-order";
@@ -125,6 +136,7 @@ type FieldOption = { label: string; value: string };
 type RichField = {
   label: string;
   kind: FieldKind;
+  queryColumns?: 1 | 2;
   value?: string;
   placeholder?: string;
   options?: FieldOption[];
@@ -162,9 +174,36 @@ type ThemeOption = {
   };
 };
 
+type TenantOption = {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+};
+
 const demoOperator = "当前用户";
 const demoTimestamp = "2026-03-22 16:40:00";
 const themeStorageKey = "prototype-app-theme";
+const tenantOptions: TenantOption[] = [
+  {
+    id: "tenant-vitamin-retail",
+    name: "维他命零售集团",
+    code: "TENANT-001",
+    description: "华东直营与电商业务",
+  },
+  {
+    id: "tenant-sunrise-trade",
+    name: "晨屿商贸有限公司",
+    code: "TENANT-014",
+    description: "跨境与保税仓业务",
+  },
+  {
+    id: "tenant-cloud-fresh",
+    name: "云鲜供应链平台",
+    code: "TENANT-032",
+    description: "生鲜采购与冷链履约",
+  },
+];
 
 function formatTaskTimestamp(date = new Date()) {
   const year = date.getFullYear();
@@ -427,7 +466,7 @@ function renderEditableField(field: RichField) {
 
 function FieldBlock({ field, readOnly = false }: { field: RichField; readOnly?: boolean }) {
   return (
-    <div>
+    <div className={field.queryColumns === 2 ? "xl:col-span-2" : undefined}>
       <div className="field-label">{field.label}</div>
       {readOnly ? <div className="display-field">{getReadOnlyFieldValue(field)}</div> : renderEditableField(field)}
     </div>
@@ -437,6 +476,7 @@ function FieldBlock({ field, readOnly = false }: { field: RichField; readOnly?: 
 export default function App() {
   const [activeTheme, setActiveTheme] = useState<ThemeKey>(resolveInitialTheme);
   const [themeModalOpen, setThemeModalOpen] = useState(false);
+  const [currentTenantId, setCurrentTenantId] = useState(tenantOptions[0].id);
   const [activeTab, setActiveTab] = useState<WorkspaceTabKey>("home");
   const [openTabs, setOpenTabs] = useState<WorkspaceTabKey[]>(["home"]);
   const [listScenario, setListScenario] = useState<ListScenario>("normal");
@@ -1406,6 +1446,8 @@ export default function App() {
             ? "inventory-flow-query"
           : "purchase-order";
 
+  const currentTenant = tenantOptions.find((item) => item.id === currentTenantId) ?? tenantOptions[0];
+
   return (
     <AppShell
       tabs={tabs}
@@ -1459,6 +1501,21 @@ export default function App() {
       onThemeSwitchAction={() => setThemeModalOpen(true)}
       onLanguageAction={() => showPendingAlert("语言切换")}
       onLogoutAction={() => showPendingAlert("退出登录")}
+      tenantOptions={tenantOptions}
+      currentTenantId={currentTenant.id}
+      onTenantChange={(tenantId) => {
+        const nextTenant = tenantOptions.find((item) => item.id === tenantId);
+        if (!nextTenant || nextTenant.id === currentTenant.id) {
+          return;
+        }
+
+        setCurrentTenantId(nextTenant.id);
+        showFloatingAlert({
+          tone: "info",
+          title: "租户已切换",
+          description: `当前上下文已切换到${nextTenant.name}，这里先演示全局入口与提示反馈。`,
+        });
+      }}
       notificationUnreadCount={notificationUnreadCount}
       notificationPreviewItems={notificationPreviewItems}
       onNotificationItemOpen={(id) => openMessageCenter("all", id)}
@@ -2201,16 +2258,14 @@ function ListPage({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
+  const [sortState, setSortState] = useState<TableSortState<string>>(null);
   const statusTabs: PurchaseOrderStatusTab[] = ["全部", "待提交", "待审核", "已审核", "已取消"];
   const filteredRows = useMemo(
     () => (activeStatusTab === "全部" ? rows : rows.filter((row) => row.status === activeStatusTab)),
     [activeStatusTab, rows],
   );
-  const totalCount = filteredRows.length;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const pagedRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
-  const visibleQueryFields = showMoreFilters ? queryFields : queryFields.slice(0, 12);
-  const allCurrentPageSelected = pagedRows.length > 0 && pagedRows.every((row) => selectedIds.includes(row.id));
+  const visibleQueryFields = getVisibleQuerySectionItems(queryFields, showMoreFilters);
+  const hasCollapsedQueryFields = hasCollapsedQuerySectionItems(queryFields);
   const statusTabItems = statusTabs.map((status) => ({
     value: status,
     label:
@@ -2218,12 +2273,6 @@ function ListPage({
         ? `全部（${rows.length}）`
         : `${status}（${rows.filter((row) => row.status === status).length}）`,
   }));
-
-  useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
 
   function toggleRowSelection(id: string) {
     setSelectedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
@@ -2286,15 +2335,15 @@ function ListPage({
         { id: "supplier", label: "供应商", group: "基础信息", width: 220 },
         { id: "organization", label: "采购组织", group: "基础信息", width: 140 },
         { id: "warehouse", label: "收货仓库", group: "基础信息", width: 140 },
-        { id: "amount", label: "金额合计", group: "金额与执行", width: 140, align: "right" as const },
+        { id: "amount", label: "金额合计", group: "金额与执行", width: 140, align: "right" as const, sortType: "currency" as TableSortType, getSortValue: (row: PurchaseOrderRow) => row.amount },
         { id: "pushed", label: "下推/入库", group: "金额与执行", width: 126 },
-        { id: "createdAt", label: "创建时间", group: "制单信息", width: 168 },
+        { id: "createdAt", label: "创建时间", group: "制单信息", width: 168, sortType: "datetime" as TableSortType, getSortValue: (row: PurchaseOrderRow) => row.createdAt },
         { id: "owner", label: "采购员", group: "制单信息", width: 110 },
         { id: "externalOrderNo", label: "外部单号", group: "扩展字段", defaultVisible: false, width: 144 },
         { id: "sourceChannel", label: "来源渠道", group: "扩展字段", defaultVisible: false, width: 128 },
         { id: "remark", label: "备注", group: "扩展字段", defaultVisible: false, width: 180 },
         { id: "actions", label: "操作", group: "系统字段", required: true, width: 168 },
-      ] satisfies Array<ColumnSettingsField & { width: number; align?: "left" | "right" }>,
+      ] satisfies Array<ColumnSettingsField & { width: number; align?: "left" | "right"; sortType?: TableSortType; getSortValue?: (row: PurchaseOrderRow) => unknown }>,
     [],
   );
 
@@ -2306,6 +2355,10 @@ function ListPage({
     storageKey: "column-settings:demo-user:purchase-order-list",
     fields: purchaseOrderColumns,
     defaultDensity: "medium",
+  });
+  const { beginResize, widths: columnWidths } = useTableColumnResize({
+    state: purchaseColumnState,
+    applyState: applyPurchaseColumnState,
   });
 
   const visibleColumns = useMemo(() => {
@@ -2326,11 +2379,37 @@ function ListPage({
       }
 
       leftMap.set(column.id, left);
-      left += column.width;
+      left += columnWidths[column.id] ?? column.width;
     });
 
     return leftMap;
-  }, [purchaseColumnState.fixed, visibleColumns]);
+  }, [columnWidths, purchaseColumnState.fixed, visibleColumns]);
+  const sortConfigs = useMemo(
+    () =>
+      purchaseOrderColumns.reduce<Partial<Record<string, TableSortConfig<PurchaseOrderRow>>>>((configs, column) => {
+        if (!column.sortType || !column.getSortValue) {
+          return configs;
+        }
+
+        configs[column.id] = {
+          type: column.sortType,
+          getValue: column.getSortValue,
+        };
+        return configs;
+      }, {}),
+    [purchaseOrderColumns],
+  );
+  const sortedRows = useMemo(() => sortTableRows(filteredRows, sortState, sortConfigs), [filteredRows, sortConfigs, sortState]);
+  const totalCount = sortedRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const pagedRows = sortedRows.slice((page - 1) * pageSize, page * pageSize);
+  const allCurrentPageSelected = pagedRows.length > 0 && pagedRows.every((row) => selectedIds.includes(row.id));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   function getPurchaseColumnCell(row: (typeof purchaseOrders)[number], columnId: string) {
     if (columnId === "select") {
@@ -2452,7 +2531,7 @@ function ListPage({
         </div>
         <div className="query-section-actions">
           <div className="query-section-action-group">
-            {queryFields.length > 12 ? (
+            {hasCollapsedQueryFields ? (
               <button
                 type="button"
                 className="inline-flex items-center gap-1 text-small text-link transition hover:text-link-hover"
@@ -2568,24 +2647,28 @@ function ListPage({
               <table>
                 <thead>
                   <tr>
-                    {visibleColumns.map((column) => {
+                    {visibleColumns.map((column, index) => {
                       const left = fixedLeftMap.get(column.id);
                       const isFixed = left !== undefined;
+                      const width = columnWidths[column.id] ?? column.width;
 
                       return (
-                        <th
+                        <TableHeaderCell
                           key={column.id}
-                          className={`${column.align === "right" ? "text-right" : ""} ${
-                            isFixed ? "table-fixed-cell is-header" : ""
-                          }`}
-                          style={{
-                            width: column.width,
-                            minWidth: column.width,
-                            left,
+                          label={column.label}
+                          width={width}
+                          left={left}
+                          isFixed={isFixed}
+                          align={column.align}
+                          sortable={Boolean(column.sortType && column.getSortValue)}
+                          showDivider={index < visibleColumns.length - 1}
+                          sortDirection={sortState?.columnId === column.id ? sortState.direction : undefined}
+                          onToggleSort={() => {
+                            setSortState((current) => getNextTableSortState(current, column.id));
+                            setPage(1);
                           }}
-                        >
-                          {column.label}
-                        </th>
+                          onResizeStart={index < visibleColumns.length - 1 ? (event) => beginResize(event, column.id, width) : undefined}
+                        />
                       );
                     })}
                   </tr>
@@ -2593,9 +2676,10 @@ function ListPage({
                 <tbody>
                   {pagedRows.map((row) => (
                     <tr key={row.id}>
-                      {visibleColumns.map((column) => {
+                      {visibleColumns.map((column, index) => {
                         const left = fixedLeftMap.get(column.id);
                         const isFixed = left !== undefined;
+                        const width = columnWidths[column.id] ?? column.width;
 
                         return (
                           <td
@@ -2604,8 +2688,8 @@ function ListPage({
                               isFixed ? "table-fixed-cell is-body" : ""
                             }`}
                             style={{
-                              width: column.width,
-                              minWidth: column.width,
+                              width,
+                              minWidth: width,
                               left,
                             }}
                           >
